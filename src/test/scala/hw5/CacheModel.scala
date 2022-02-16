@@ -46,6 +46,10 @@ class DMCacheModel(p: CacheParams, externalMem: ArrayBuffer[CacheBlockModel]) ex
 
 
 class SACacheModel(p: CacheParams, externalMem: ArrayBuffer[CacheBlockModel]) extends CacheModel(p, externalMem) {
+    val wayParams = p.copy(capacity=p.capacity/p.associativity, associativity = 1)
+    val ways = Seq.fill(p.associativity)(new DMCacheModel(wayParams, externalMem))
+    val replacementIndices = ArrayBuffer.fill(p.numSets)(0)
+    
     // BEGIN SOLUTION
     ???
 
