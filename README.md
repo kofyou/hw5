@@ -16,6 +16,9 @@ You will have to implement:
 * `isHit` for both caches. This method does not change the internal contents or state of the cache, but simply returns if the requested address is present in the cache. This will be helpful for testing the hit/miss functionality of our Chisel module.
 * `wayToReplace` only for SACacheModel. With an associative cache, there is a choice of where to put in a new block (replacement policy). For ease of testing, please implement round-robin starting from way 0.
 
+For the set-associative cache `SACacheModel`, you will implement it with your direct-mapped cache `DMCacheModel`. Each _way_ of your set associative cache is a direct-mapped cache (that is scaled down so the overall capacity is the same). We provide some of this declaration to ease setting this up. By reusing the direct-mapped cache, you can focus on what differentiates the set-associative cache, namely having multiple ways and having to make choices on which blocks to replace.
+
+
 
 ## Problem 2 - Chisel Generator (50pts)
 
