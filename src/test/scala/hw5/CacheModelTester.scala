@@ -176,6 +176,7 @@ class CacheModelTester extends AnyFlatSpec with ChiselScalatestTester {
 
         // fill up all blocks in a set in order
         for (w <- 0 until p.associativity) {
+            // line in one set are not continuous babe
             val addr = w * p.numSets * p.blockSize
             assert(m.wayToReplace(addr) == w)
             testRead(m, addr, 0, false)
@@ -183,6 +184,7 @@ class CacheModelTester extends AnyFlatSpec with ChiselScalatestTester {
 
         // find replacement slots all valid going round robin
         for (w <- 0 until p.associativity) {
+            // add capacity, so tags are different
             val addr = w * p.numSets * p.blockSize + p.capacity
             val (tag, index, offset) = m.findCacheAddressFields(addr)
             assert(m.replacementIndices(index) == w)
