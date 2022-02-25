@@ -118,6 +118,7 @@ class CacheTester extends AnyFlatSpec with ChiselScalatestTester {
 
 	it should "be able to write to all words and then read all in cache" in {
 		val p = CacheParams(32, 4, 1)
+		// val p = CacheParams(8, 4, 1, 4)
 		val m = CacheModel(p)()
 		test(new DMCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
 			for(addr <- 0 until (1 << p.addrLen)) {
