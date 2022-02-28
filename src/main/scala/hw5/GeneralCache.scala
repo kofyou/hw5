@@ -195,7 +195,7 @@ class GeCache(p: CacheParams) extends Cache(p) {
         // TODO: how is this excuted?
         waySeq.foreach(set => assert(set.io.out.valid === true.B))
         val hitSeq = waySeq.map(_.io.out.bits.hit)
-        io.hit := hitSeq.reduce((hit1,hit2) => hit1 && hit2)
+        io.hit := hitSeq.reduce((hit1,hit2) => hit1 || hit2)
 
         when (io.hit) {
             // OHToUInt("b0100".U) // results in 2.U
@@ -231,7 +231,7 @@ class GeCache(p: CacheParams) extends Cache(p) {
             val replSetIndexWire = Wire(UInt(log2Ceil(p.associativity + 1).W))
             val validLineSeq = waySeq.map(!_.io.out.bits.validLine)
             // when (VecInit(validLineSeq).asUInt =/= 0.U) {
-            when (validLineSeq.reduce((valid1,valid2) => valid1 && valid2) === true.B) {
+            when (validLineSeq.reduce((valid1,valid2) => valid1 || valid2) === true.B) {
                 // get first invalid set index
                 // TODO: why do not take vec of bool?
                 // - 1.U: seems start from 0
@@ -239,13 +239,11 @@ class GeCache(p: CacheParams) extends Cache(p) {
                 replSetIndexWire := PriorityEncoder(validLineSeq)
             } .otherwise {
                 replSetIndexWire := getReplIndex(index)
-            }
-            replSetIndexReg := replSetIndexWire
-            when (waySeqIOVec(replSetIndexWire).out.bits.validLine) {
                 dataReg := waySeqIOVec(replSetIndexWire).out.bits.rLine
                 tagReg := waySeqIOVec(replSetIndexWire).out.bits.rTag
                 wbReg := true.B
             }
+            replSetIndexReg := replSetIndexWire
             state := 2.U
         }
     } .elsewhen (state === 2.U) {
@@ -256,6 +254,7 @@ class GeCache(p: CacheParams) extends Cache(p) {
 
         // cache write back and write to cache
         when (wbReg) {
+            // val flagsOut = flagsIn \| overflow	Bitwise OR ?
             extMem.io.wAddr := (tagReg << p.numIndexBits.U) | index
             extMem.io.wEn := true.B
             extMem.io.wData := dataReg
@@ -268,7 +267,7 @@ class GeCache(p: CacheParams) extends Cache(p) {
         // TODO: an interface for submodule read/wite?
         assert(waySeqIOVec(replSetIndexReg).in.ready === true.B)
         waySeqIOVec(replSetIndexReg).in.valid := true.B
-        waySeqIOVec(replSetIndexReg).in.bits.addr
+        waySeqIOVec(replSetIndexReg).in.bits.addr := io.in.bits.addr
         waySeqIOVec(replSetIndexReg).in.bits.write := true.B
         waySeqIOVec(replSetIndexReg).in.bits.wLine := memReadWire
 

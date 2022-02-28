@@ -115,17 +115,16 @@ class GeneralCacheTester extends AnyFlatSpec with ChiselScalatestTester {
     }
 
 
-    // behavior of "GeneralCache"
-    // it should "be able to read (miss, then hit) a block" in {
-    // 	// val p = CacheParams(32, 4, 1)
-    //     val p = CacheParams(8, 4, 1, 4)
-    // 	val m = CacheModel(p)()
-    //     println("param: " + p.associativity + " " +log2Ceil(p.associativity))
-    // 	test(new GeCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
-    // 		performReadTest(dut, m, 3)
-    // 		performReadTest(dut, m, 3)
-    // 	}
-    // }
+    behavior of "GeneralCache"
+    it should "be able to read (miss, then hit) a block" in {
+        // val p = CacheParams(32, 4, 1)
+        val p = CacheParams(8, 4, 1, 4)
+        val m = CacheModel(p)()
+        test(new GeCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+            performReadTest(dut, m, 3)
+            performReadTest(dut, m, 3)
+        }
+    }
 
     
     /*it should "be able to read (miss, then hit) a block" in {
