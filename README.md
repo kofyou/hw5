@@ -1,5 +1,25 @@
+Project - Homework 5 Extension
+=======================
+
+This Project for [Agile Hardware Design](https://classes.soe.ucsc.edu/cse293/Winter22/) will extend [Homework 5](https://github.com/agile-hw/hw5) -- implementing a cache generator, and it inherits the framework. Based on what is already done, the next steps include set-associative cache, LRU replacement policy, and (potentially) non-blocking cache.
+
+## Iteration 1 - Set-Associative Cache
+`GeneralCache.scala` contains two new classes. They are designed by partitioning the functionalities of the `Cache` class into two parts, following the ideas when we implement the cache model in scala.
+
+- `DMCacheWay` is for storage and it behaves like a direct-mapped cache. We can write a block to it, or read a block and some control information from it (with one cycle of delay).
+- `GeCache` is for control and it contains a set of `DMCacheWay`. Based on the inputs and information returned by the ways, it further communicates with external memories, updates the ways, or handles the outputs.
+
+`GeneralCacheTester.scala` uses `CacheTester.scala` as a template and will contain tests for both classes. Because the specifications of the cache remain the same, the test harness provided in homework 5 will still work. (And it shall pass all existing tests for the direct-mapped cache). Thank you, Amogh and Professor Beamer!
+
+- A simple write and read test for `DMCacheWay` is passed.
+- **[In-Progress]** A simple read test for `GeCache` will fail because the current implementation contains combinational loops. Still working on it.
+- **[In-Progress]** Add more tests for the fully-associative and set-associative cache.
+
+
+
 Homework 5 - Parameterized Cache Generator
 =======================
+
 In this assignment, you will be implementing a parameterized cache generator. To refresh your memory on cache concepts, please refer to [Cache placement policies](https://en.wikipedia.org/wiki/Cache_placement_policies) and [Finding data in a cache](https://inst.eecs.berkeley.edu/~cs61c/resources/caches.pdf). For simplicity, our cache will be blocking (handles at most one request at a time) and always write back (no dirty bits to maintain). The caches will never be fully associative, and will be either direct mapped or set associative. The first part of the assignment requires you to replicate the functionality of the cache in Scala. This model will then be used to verify your Chisel code in the second part of this assignment. 
 
 In this assignment, in some places, we provide more code than normal to reduce unnecessary work and place the focus on the learning goals: inheritance and memories (SyncReadMem). That being said, in some blanks, you may need to write 50+ lines of code.
