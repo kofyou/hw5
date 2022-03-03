@@ -139,6 +139,7 @@ class GeCache(p: CacheParams) extends Cache(p) {
     waySeqIOVec.foreach(setIO => setIO.in.bits.write := false.B)
     waySeqIOVec.foreach(setIO => setIO.in.bits.wLine := VecInit(Seq.fill(p.blockSize)(0.U)))
 
+    // TODO: WireInit
     val memReadWire = Wire(CacheBlock())
     
     // hit bits -> one hot -> index, indexing by vec
@@ -216,7 +217,7 @@ class GeCache(p: CacheParams) extends Cache(p) {
                 assert(waySeqIOVec(hitSetIndex).in.ready === true.B)
                 waySeqIOVec(hitSetIndex).in.valid := true.B
                 // TODO: hoist to outside?
-                waySeqIOVec(hitSetIndex).in.bits.addr := io.in.bits.addr
+                // waySeqIOVec(hitSetIndex).in.bits.addr := io.in.bits.addr
                 waySeqIOVec(hitSetIndex).in.bits.write := true.B
                 waySeqIOVec(hitSetIndex).in.bits.wLine := hitSetData
             } .otherwise {
@@ -255,6 +256,7 @@ class GeCache(p: CacheParams) extends Cache(p) {
         // cache write back and write to cache
         when (wbReg) {
             // val flagsOut = flagsIn \| overflow	Bitwise OR ?
+            // TODO: bit extraction and cat
             extMem.io.wAddr := (tagReg << p.numIndexBits.U) | index
             extMem.io.wEn := true.B
             extMem.io.wData := dataReg
