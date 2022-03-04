@@ -103,7 +103,7 @@ class GeCache(p: CacheParams) extends Cache(p) {
     // TODO: seq or vec?
     // seq only takes scala index? if indexing by chisel should use vec?
     val wayParams = p.copy(capacity=p.capacity/p.associativity, associativity = 1)
-    val waySeq = Seq.fill(p.numSets)(Module(new DMCacheWay(wayParams)))
+    val waySeq = Seq.fill(p.associativity)(Module(new DMCacheWay(wayParams)))
     val waySeqIOVec = VecInit(waySeq.map(_.io))
 
     // ref: https://stackoverflow.com/questions/62809878/how-to-create-a-array-vec-of-chisel-modules
@@ -111,11 +111,11 @@ class GeCache(p: CacheParams) extends Cache(p) {
     // "In general you only need a Vec if you want to use hardware based indexing of the elements,
     // or your Elements are part of an IO. If you don't need that you can just use a Scala collection like Seq,
     // Array or similar."
-    // val setVec = Vec.fill(p.numSets) {Module(new DMCacheWay(p)).io}
+    // val setVec = Vec.fill(p.associativity) {Module(new DMCacheWay(p)).io}
 
     // ref: https://stackoverflow.com/questions/33621533/how-to-do-a-vector-of-modules
     // val vec_of_elements = Vec(10, Module(SaturatingCounter(4)).io)
-    // val setVec = Vec(p.numSets, Module(new DMCacheWay(p)).io)
+    // val setVec = Vec(p.associativity, Module(new DMCacheWay(p)).io)
 
     // 0: ready, 1: lookup, 2: fetch
     val state = RegInit(0.U)
@@ -124,7 +124,7 @@ class GeCache(p: CacheParams) extends Cache(p) {
     val dataReg = Reg(CacheBlock())
     val tagReg = Reg(UInt(p.numTagBits.W))
     val wbReg = Reg(Bool())
-    val replSetIndexReg = Reg(UInt(log2Ceil(p.numSets + 1).W))
+    val replSetIndexReg = Reg(UInt(log2Ceil(p.associativity + 1).W))
 
     // just init
     io.in.ready := true.B
@@ -208,7 +208,8 @@ class GeCache(p: CacheParams) extends Cache(p) {
             Seq.range(0, p.blockSize).foreach(index => printf("%d, ", x.io.out.bits.rLine(index.U)))
             printf("||")
         }
-        printf("\n\n")
+        printf("\n")
+        printf("hit: %d\n", io.hit)
 
         // TODO: how is this excuted?
         waySeq.foreach(set => assert(set.io.out.valid === true.B, "assert valid at state 1"))
@@ -221,6 +222,7 @@ class GeCache(p: CacheParams) extends Cache(p) {
             // shall not be of more than one high bit tho... TODO: count high bits
             // https://www.chisel-lang.org/api/latest/chisel3/util/OHToUInt$.html
             val hitSetIndex = OHToUInt(hitSeq)
+            printf("hitIndex: %d\n\n\n", hitSetIndex)
             // TODO
             val hitSetData = Wire(CacheBlock())
             hitSetData := waySeqIOVec(hitSetIndex).out.bits.rLine
@@ -259,6 +261,7 @@ class GeCache(p: CacheParams) extends Cache(p) {
                 tagReg := waySeqIOVec(replSetIndexWire).out.bits.rTag
                 wbReg := true.B
             }
+            printf("replIndex: %d\n\n\n", replSetIndexWire)
             replSetIndexReg := replSetIndexWire
             state := 2.U
         }
