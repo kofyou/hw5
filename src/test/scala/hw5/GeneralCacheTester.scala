@@ -14,26 +14,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 class GeneralCacheTester extends AnyFlatSpec with ChiselScalatestTester {
     behavior of "DMCacheWay"
     it should "be able to write & read it back" in {
-        val p = CacheParams(8, 4, 1, 4)
-
-    // val io = IO(new Bundle {
-    //     val in = Flipped(Decoupled(new Bundle {
-    //         val addr = UInt(p.addrLen.W)
-    //         val write = Bool()
-    //         // the whole line
-    //         val wLine = CacheBlock()
-    //     }))
-    //     val out = Valid(new Bundle {
-    //         val rTag = Output(UInt(p.numTagBits.W))
-    //         // the whole line
-    //         val rLine = CacheBlock()
-    //         // new data valid bit
-    //         val validLine = Output(Bool())
-    //         // TODO: is hit available
-    //         val hit = Output(Bool())
-    //     })		// sets valid to true to indicate completion (even for writes)
-    // })
-
+        val p = CacheParams(32, 4, 1)
         test(new DMCacheWay(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
             val addr = 4
             val block = Vec.Lit(0.U(p.bitsPerWord.W), 1.U(p.bitsPerWord.W), 2.U(p.bitsPerWord.W), 3.U(p.bitsPerWord.W))
@@ -117,20 +98,9 @@ class GeneralCacheTester extends AnyFlatSpec with ChiselScalatestTester {
 
     behavior of "GeneralCache"
     it should "be able to read (miss, then hit) a block" in {
-        // val p = CacheParams(32, 4, 1)
-        val p = CacheParams(8, 4, 1, 4)
-        val m = CacheModel(p)()
-        test(new GeCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
-            performReadTest(dut, m, 3)
-            performReadTest(dut, m, 3)
-        }
-    }
-
-    
-    /*it should "be able to read (miss, then hit) a block" in {
         val p = CacheParams(32, 4, 1)
         val m = CacheModel(p)()
-        test(new DMCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+        test(new GeCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
             performReadTest(dut, m, 8)
             performReadTest(dut, m, 8)
         }
@@ -139,7 +109,7 @@ class GeneralCacheTester extends AnyFlatSpec with ChiselScalatestTester {
     it should "be able to write miss then read hit a block" in {
         val p = CacheParams(32, 4, 1)
         val m = CacheModel(p)()
-        test(new DMCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+        test(new GeCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
             performWriteTest(dut, m, 8, 8)
             performReadTest(dut, m, 8)
         }
@@ -148,7 +118,7 @@ class GeneralCacheTester extends AnyFlatSpec with ChiselScalatestTester {
     it should "load in a block" in {
         val p = CacheParams(32, 4, 1)
         val m = CacheModel(p)()
-        test(new DMCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+        test(new GeCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
             val addr = 4
             // first miss to bring block in
             performReadTest(dut, m, addr)
@@ -163,7 +133,7 @@ class GeneralCacheTester extends AnyFlatSpec with ChiselScalatestTester {
         val p = CacheParams(32, 4, 1)
         // val p = CacheParams(8, 4, 1, 4)
         val m = CacheModel(p)()
-        test(new DMCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+        test(new GeCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
             for(addr <- 0 until (1 << p.addrLen)) {
                 performWriteTest(dut, m, addr, addr)
             }
@@ -176,11 +146,11 @@ class GeneralCacheTester extends AnyFlatSpec with ChiselScalatestTester {
     it should "handle thrashing 0 -> 32 -> 0" in {
         val p = CacheParams(32, 4, 1)
         val m = CacheModel(p)()
-        test(new DMCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+        test(new GeCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
             performReadTest(dut, m, 0)							   // Read miss to block 0
             performWriteTest(dut, m, 1, 1)    // Write hit to block 0
             performWriteTest(dut, m, 32, 32)  // Write hit to block 32
             performWriteTest(dut, m, 1, 1)    // Read miss to block 0
         }
-    }*/
+    }
 }
