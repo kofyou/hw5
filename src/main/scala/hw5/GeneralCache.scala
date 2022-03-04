@@ -111,11 +111,11 @@ class GeCache(p: CacheParams) extends Cache(p) {
     // "In general you only need a Vec if you want to use hardware based indexing of the elements,
     // or your Elements are part of an IO. If you don't need that you can just use a Scala collection like Seq,
     // Array or similar."
-    // val setVec = Vec.fill(p.associativity) {Module(new DMCacheWay(p)).io}
+    // val wayVec = Vec.fill(p.associativity) {Module(new DMCacheWay(p)).io}
 
     // ref: https://stackoverflow.com/questions/33621533/how-to-do-a-vector-of-modules
     // val vec_of_elements = Vec(10, Module(SaturatingCounter(4)).io)
-    // val setVec = Vec(p.associativity, Module(new DMCacheWay(p)).io)
+    // val wayVec = Vec(p.associativity, Module(new DMCacheWay(p)).io)
 
     // 0: ready, 1: lookup, 2: fetch
     val state = RegInit(0.U)
@@ -124,7 +124,7 @@ class GeCache(p: CacheParams) extends Cache(p) {
     val dataReg = Reg(CacheBlock())
     val tagReg = Reg(UInt(p.numTagBits.W))
     val wbReg = Reg(Bool())
-    val replSetIndexReg = Reg(UInt(log2Ceil(p.associativity + 1).W))
+    val replWayIndexReg = Reg(UInt(log2Ceil(p.associativity + 1).W))
 
     // just init
     io.in.ready := true.B
@@ -139,11 +139,11 @@ class GeCache(p: CacheParams) extends Cache(p) {
     extMem.io.wData := VecInit(Seq.fill(p.blockSize)(0.U))
 
     // I thooght if I connect waySeq I don't have to do waySeqIOVec?
-    waySeqIOVec.foreach(setIO => setIO.in.valid := false.B)
-    // waySeqIOVec.foreach(setIO => setIO.in.bits.addr := 0.U)
-    waySeqIOVec.foreach(setIO => setIO.in.bits.addr := io.in.bits.addr)
-    waySeqIOVec.foreach(setIO => setIO.in.bits.write := false.B)
-    waySeqIOVec.foreach(setIO => setIO.in.bits.wLine := VecInit(Seq.fill(p.blockSize)(0.U)))
+    waySeqIOVec.foreach(wayIO => wayIO.in.valid := false.B)
+    // waySeqIOVec.foreach(wayIO => wayIO.in.bits.addr := 0.U)
+    waySeqIOVec.foreach(wayIO => wayIO.in.bits.addr := io.in.bits.addr)
+    waySeqIOVec.foreach(wayIO => wayIO.in.bits.write := false.B)
+    waySeqIOVec.foreach(wayIO => wayIO.in.bits.wLine := VecInit(Seq.fill(p.blockSize)(0.U)))
 
     // TODO: WireInit
     val memReadWire = Wire(CacheBlock())
@@ -165,7 +165,7 @@ class GeCache(p: CacheParams) extends Cache(p) {
         roundRobinRegs(setIndex)
     }
 
-    // TODO: opt set io, like is decouple necessarry?
+    // TODO: opt way io, like is decouple necessarry?
     // TODO: index is not used in this level?
     when (state === 0.U) {
         io.in.ready := true.B
@@ -177,13 +177,13 @@ class GeCache(p: CacheParams) extends Cache(p) {
         wbReg := false.B
 
         when (io.in.fire) {
-            waySeq.foreach(set => assert(set.io.in.ready === true.B, "assert ready at state 0"))
-            // waySeq.reduce((set1,set2) => set1.io.in.bits.ready && set2.io.in.bits.ready)
-            // lookup in sets
-            waySeq.foreach(set => set.io.in.valid := true.B)
+            waySeq.foreach(way => assert(way.io.in.ready === true.B, "assert ready at state 0"))
+            // waySeq.reduce((way1,way2) => way1.io.in.bits.ready && way2.io.in.bits.ready)
+            // lookup in ways
+            waySeq.foreach(way => way.io.in.valid := true.B)
             // TODO: hoist to outside?
-            // waySeq.foreach(set => set.io.in.bits.addr := io.in.bits.addr)
-            waySeq.foreach(set => set.io.in.bits.write := false.B)
+            // waySeq.foreach(way => way.io.in.bits.addr := io.in.bits.addr)
+            waySeq.foreach(way => way.io.in.bits.write := false.B)
             state := 1.U
         }
     } .elsewhen (state === 1.U) {
@@ -212,7 +212,7 @@ class GeCache(p: CacheParams) extends Cache(p) {
         printf("hit: %d\n", io.hit)
 
         // TODO: how is this excuted?
-        waySeq.foreach(set => assert(set.io.out.valid === true.B, "assert valid at state 1"))
+        waySeq.foreach(way => assert(way.io.out.valid === true.B, "assert valid at state 1"))
         val hitSeq = waySeq.map(_.io.out.bits.hit)
         io.hit := hitSeq.reduce((hit1,hit2) => hit1 || hit2)
 
@@ -221,24 +221,24 @@ class GeCache(p: CacheParams) extends Cache(p) {
             // PriorityEncoder
             // shall not be of more than one high bit tho... TODO: count high bits
             // https://www.chisel-lang.org/api/latest/chisel3/util/OHToUInt$.html
-            val hitSetIndex = OHToUInt(hitSeq)
-            printf("hitIndex: %d\n\n\n", hitSetIndex)
+            val hitWayIndex = OHToUInt(hitSeq)
+            printf("hitIndex: %d\n\n\n", hitWayIndex)
             // TODO
-            val hitSetData = Wire(CacheBlock())
-            hitSetData := waySeqIOVec(hitSetIndex).out.bits.rLine
+            val hitWayData = Wire(CacheBlock())
+            hitWayData := waySeqIOVec(hitWayIndex).out.bits.rLine
             // output for read or update for write
             when (io.in.bits.write) {
                 // TODO:
-                hitSetData(offset) := io.in.bits.wData
+                hitWayData(offset) := io.in.bits.wData
                 // write to the way while it is still holding the read output, always ready
-                // assert(waySeqIOVec(hitSetIndex).in.ready === true.B, "assert ready at state 1")
-                waySeqIOVec(hitSetIndex).in.valid := true.B
+                // assert(waySeqIOVec(hitWayIndex).in.ready === true.B, "assert ready at state 1")
+                waySeqIOVec(hitWayIndex).in.valid := true.B
                 // TODO: hoist to outside?
-                // waySeqIOVec(hitSetIndex).in.bits.addr := io.in.bits.addr
-                waySeqIOVec(hitSetIndex).in.bits.write := true.B
-                waySeqIOVec(hitSetIndex).in.bits.wLine := hitSetData
+                // waySeqIOVec(hitWayIndex).in.bits.addr := io.in.bits.addr
+                waySeqIOVec(hitWayIndex).in.bits.write := true.B
+                waySeqIOVec(hitWayIndex).in.bits.wLine := hitWayData
             } .otherwise {
-                io.out.bits := hitSetData(offset)
+                io.out.bits := hitWayData(offset)
             }
             io.out.valid := true.B
             state := 0.U
@@ -246,23 +246,23 @@ class GeCache(p: CacheParams) extends Cache(p) {
             extMem.io.rAddr := io.in.bits.addr / p.blockSize.U
             extMem.io.rEn := true.B
 
-            val replSetIndexWire = Wire(UInt(log2Ceil(p.associativity + 1).W))
+            val replWayIndexWire = Wire(UInt(log2Ceil(p.associativity + 1).W))
             val validLineSeq = waySeq.map(!_.io.out.bits.validLine)
             // when (VecInit(validLineSeq).asUInt =/= 0.U) {
             when (validLineSeq.reduce((valid1,valid2) => valid1 || valid2) === true.B) {
-                // get first invalid set index
+                // get first invalid way index
                 // TODO: why do not take vec of bool?
                 // - 1.U: seems start from 0
                 // https://www.chisel-lang.org/api/latest/chisel3/util/PriorityEncoder$.html
-                replSetIndexWire := PriorityEncoder(validLineSeq)
+                replWayIndexWire := PriorityEncoder(validLineSeq)
             } .otherwise {
-                replSetIndexWire := getReplIndex(index)
-                dataReg := waySeqIOVec(replSetIndexWire).out.bits.rLine
-                tagReg := waySeqIOVec(replSetIndexWire).out.bits.rTag
+                replWayIndexWire := getReplIndex(index)
+                dataReg := waySeqIOVec(replWayIndexWire).out.bits.rLine
+                tagReg := waySeqIOVec(replWayIndexWire).out.bits.rTag
                 wbReg := true.B
             }
-            printf("replIndex: %d\n\n\n", replSetIndexWire)
-            replSetIndexReg := replSetIndexWire
+            printf("replIndex: %d\n\n\n", replWayIndexWire)
+            replWayIndexReg := replWayIndexWire
             state := 2.U
         }
     } .elsewhen (state === 2.U) {
@@ -285,11 +285,11 @@ class GeCache(p: CacheParams) extends Cache(p) {
         }
         // printf("br: %d %d %d %d from %d\n\n", memReadWire(0.U),  memReadWire(1.U),  memReadWire(2.U),  memReadWire(3.U), io.in.bits.addr / p.blockSize.U)
         // TODO: an interface for submodule read/wite?
-        assert(waySeqIOVec(replSetIndexReg).in.ready === true.B, "assert ready at state 2")
-        waySeqIOVec(replSetIndexReg).in.valid := true.B
-        // waySeqIOVec(replSetIndexReg).in.bits.addr := io.in.bits.addr
-        waySeqIOVec(replSetIndexReg).in.bits.write := true.B
-        waySeqIOVec(replSetIndexReg).in.bits.wLine := memReadWire
+        assert(waySeqIOVec(replWayIndexReg).in.ready === true.B, "assert ready at state 2")
+        waySeqIOVec(replWayIndexReg).in.valid := true.B
+        // waySeqIOVec(replWayIndexReg).in.bits.addr := io.in.bits.addr
+        waySeqIOVec(replWayIndexReg).in.bits.write := true.B
+        waySeqIOVec(replWayIndexReg).in.bits.wLine := memReadWire
 
         when (io.in.bits.write === false.B) {
             io.out.bits := memReadWire(offset)
