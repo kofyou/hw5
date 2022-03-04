@@ -60,6 +60,16 @@ class DMCacheWay(p: CacheParams) extends Module {
     dataReadWire := data.read(index, io.in.fire && !io.in.bits.write)
     tagReadWire := tags.read(index, io.in.fire && !io.in.bits.write)
 
+    // always ready for writes. always
+    when (io.in.bits.write) {
+        // no output for write
+        data.write(index, io.in.bits.wLine)
+        tags.write(index, tag)
+        valids(index) := true.B
+    }
+
+    // states are only for read
+    // TODO: can i also make it always ready?
     when (state === 0.U) {
         // TODO
         io.in.ready := true.B
@@ -68,12 +78,7 @@ class DMCacheWay(p: CacheParams) extends Module {
         io.out.bits.validLine := false.B
 
         when (io.in.fire) {
-            when (io.in.bits.write) {
-                // no output for write
-                data.write(index, io.in.bits.wLine)
-                tags.write(index, tag)
-                valids(index) := true.B
-            } .otherwise {
+            when (!io.in.bits.write) {
                 state := 1.U
             }
         }
@@ -172,7 +177,7 @@ class GeCache(p: CacheParams) extends Cache(p) {
         wbReg := false.B
 
         when (io.in.fire) {
-            waySeq.foreach(set => assert(set.io.in.ready === true.B))
+            waySeq.foreach(set => assert(set.io.in.ready === true.B, "assert ready at state 0"))
             // waySeq.reduce((set1,set2) => set1.io.in.bits.ready && set2.io.in.bits.ready)
             // lookup in sets
             waySeq.foreach(set => set.io.in.valid := true.B)
@@ -206,7 +211,7 @@ class GeCache(p: CacheParams) extends Cache(p) {
         printf("\n\n")
 
         // TODO: how is this excuted?
-        waySeq.foreach(set => assert(set.io.out.valid === true.B))
+        waySeq.foreach(set => assert(set.io.out.valid === true.B, "assert valid at state 1"))
         val hitSeq = waySeq.map(_.io.out.bits.hit)
         io.hit := hitSeq.reduce((hit1,hit2) => hit1 || hit2)
 
@@ -222,11 +227,9 @@ class GeCache(p: CacheParams) extends Cache(p) {
             // output for read or update for write
             when (io.in.bits.write) {
                 // TODO:
-                assert(waySeqIOVec(hitSetIndex).in.ready === true.B)
-
                 hitSetData(offset) := io.in.bits.wData
-
-                assert(waySeqIOVec(hitSetIndex).in.ready === true.B)
+                // write to the way while it is still holding the read output, always ready
+                // assert(waySeqIOVec(hitSetIndex).in.ready === true.B, "assert ready at state 1")
                 waySeqIOVec(hitSetIndex).in.valid := true.B
                 // TODO: hoist to outside?
                 // waySeqIOVec(hitSetIndex).in.bits.addr := io.in.bits.addr
@@ -279,7 +282,7 @@ class GeCache(p: CacheParams) extends Cache(p) {
         }
         // printf("br: %d %d %d %d from %d\n\n", memReadWire(0.U),  memReadWire(1.U),  memReadWire(2.U),  memReadWire(3.U), io.in.bits.addr / p.blockSize.U)
         // TODO: an interface for submodule read/wite?
-        assert(waySeqIOVec(replSetIndexReg).in.ready === true.B)
+        assert(waySeqIOVec(replSetIndexReg).in.ready === true.B, "assert ready at state 2")
         waySeqIOVec(replSetIndexReg).in.valid := true.B
         // waySeqIOVec(replSetIndexReg).in.bits.addr := io.in.bits.addr
         waySeqIOVec(replSetIndexReg).in.bits.write := true.B
