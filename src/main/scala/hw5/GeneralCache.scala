@@ -135,7 +135,8 @@ class GeCache(p: CacheParams) extends Cache(p) {
 
     // I thooght if I connect waySeq I don't have to do waySeqIOVec?
     waySeqIOVec.foreach(setIO => setIO.in.valid := false.B)
-    waySeqIOVec.foreach(setIO => setIO.in.bits.addr := 0.U)
+    // waySeqIOVec.foreach(setIO => setIO.in.bits.addr := 0.U)
+    waySeqIOVec.foreach(setIO => setIO.in.bits.addr := io.in.bits.addr)
     waySeqIOVec.foreach(setIO => setIO.in.bits.write := false.B)
     waySeqIOVec.foreach(setIO => setIO.in.bits.wLine := VecInit(Seq.fill(p.blockSize)(0.U)))
 
@@ -176,7 +177,7 @@ class GeCache(p: CacheParams) extends Cache(p) {
             // lookup in sets
             waySeq.foreach(set => set.io.in.valid := true.B)
             // TODO: hoist to outside?
-            waySeq.foreach(set => set.io.in.bits.addr := io.in.bits.addr)
+            // waySeq.foreach(set => set.io.in.bits.addr := io.in.bits.addr)
             waySeq.foreach(set => set.io.in.bits.write := false.B)
             state := 1.U
         }
@@ -189,9 +190,20 @@ class GeCache(p: CacheParams) extends Cache(p) {
         // addr: 0 ~ 15
         // 0 ()()()() {0,1,2,3 with tag 0} {8,9,10,11 with tag 1}
         // 1 ()()()() {4,5,6,7 with tag 0} {12,13,14,15 with tag 1}
-        printf("addr: %d, off: %d, index: %d, tag: %d, tagcmp: %d / %d, valid: %d / %d\n", io.in.bits.addr, offset, index, tag, waySeq(0).io.out.bits.rTag, waySeq(1).io.out.bits.rTag, waySeq(0).io.out.bits.validLine, waySeq(1).io.out.bits.validLine)
+        printf("addr: %d, off: %d, index: %d, tag: %d\n", io.in.bits.addr, offset, index, tag)
         printf("wen: %d, wdata: %d\n", io.in.bits.write, io.in.bits.wData)
-        printf("wire: %d %d %d %d / %d %d %d %d\n\n\n", waySeq(0).io.out.bits.rLine(0.U), waySeq(0).io.out.bits.rLine(1.U), waySeq(0).io.out.bits.rLine(2.U), waySeq(0).io.out.bits.rLine(3.U), waySeq(1).io.out.bits.rLine(0.U), waySeq(1).io.out.bits.rLine(1.U), waySeq(1).io.out.bits.rLine(2.U), waySeq(1).io.out.bits.rLine(3.U))
+        printf("all tags: ")
+        waySeq.foreach(x => printf("%d, ", x.io.out.bits.rTag))
+        printf("\n")
+        printf("all valids: ")
+        waySeq.foreach(x => printf("%d, ", x.io.out.bits.validLine))
+        printf("\n")
+        printf("all lines: ")
+        for( x <- waySeq ){
+            Seq.range(0, p.blockSize).foreach(index => printf("%d, ", x.io.out.bits.rLine(index.U)))
+            printf("||")
+        }
+        printf("\n\n")
 
         // TODO: how is this excuted?
         waySeq.foreach(set => assert(set.io.out.valid === true.B))
@@ -269,7 +281,7 @@ class GeCache(p: CacheParams) extends Cache(p) {
         // TODO: an interface for submodule read/wite?
         assert(waySeqIOVec(replSetIndexReg).in.ready === true.B)
         waySeqIOVec(replSetIndexReg).in.valid := true.B
-        waySeqIOVec(replSetIndexReg).in.bits.addr := io.in.bits.addr
+        // waySeqIOVec(replSetIndexReg).in.bits.addr := io.in.bits.addr
         waySeqIOVec(replSetIndexReg).in.bits.write := true.B
         waySeqIOVec(replSetIndexReg).in.bits.wLine := memReadWire
 
