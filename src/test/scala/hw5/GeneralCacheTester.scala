@@ -96,9 +96,9 @@ class GeneralCacheTester extends AnyFlatSpec with ChiselScalatestTester {
     }
 
 
-    behavior of "GeneralCache"
+    def performGeneralTest(p : CacheParams) = {
     it should "be able to read (miss, then hit) a block" in {
-        val p = CacheParams(32, 4, 1)
+        // val p = CacheParams(32, 4, 1)
         val m = CacheModel(p)()
         test(new GeCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
             performReadTest(dut, m, 8)
@@ -107,7 +107,7 @@ class GeneralCacheTester extends AnyFlatSpec with ChiselScalatestTester {
     }
 
     it should "be able to write miss then read hit a block" in {
-        val p = CacheParams(32, 4, 1)
+        // val p = CacheParams(32, 4, 1)
         val m = CacheModel(p)()
         test(new GeCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
             performWriteTest(dut, m, 8, 8)
@@ -116,7 +116,7 @@ class GeneralCacheTester extends AnyFlatSpec with ChiselScalatestTester {
     }
 
     it should "load in a block" in {
-        val p = CacheParams(32, 4, 1)
+        // val p = CacheParams(32, 4, 1)
         val m = CacheModel(p)()
         test(new GeCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
             val addr = 4
@@ -130,7 +130,7 @@ class GeneralCacheTester extends AnyFlatSpec with ChiselScalatestTester {
     }
 
     it should "be able to write to all words and then read all in cache" in {
-        val p = CacheParams(32, 4, 1)
+        // val p = CacheParams(32, 4, 1)
         // val p = CacheParams(8, 4, 1, 4)
         val m = CacheModel(p)()
         test(new GeCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
@@ -144,7 +144,7 @@ class GeneralCacheTester extends AnyFlatSpec with ChiselScalatestTester {
     }
 
     it should "handle thrashing 0 -> 32 -> 0" in {
-        val p = CacheParams(32, 4, 1)
+        // val p = CacheParams(32, 4, 1)
         val m = CacheModel(p)()
         test(new GeCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
             performReadTest(dut, m, 0)							   // Read miss to block 0
@@ -153,4 +153,16 @@ class GeneralCacheTester extends AnyFlatSpec with ChiselScalatestTester {
             performWriteTest(dut, m, 1, 1)    // Read miss to block 0
         }
     }
+
+
+    }
+
+    behavior of "Direct-Mapped GeneralCache"
+    performGeneralTest(p = CacheParams(32, 4, 1))
+
+    behavior of "Fully-Associative GeneralCache"
+    performGeneralTest(p = CacheParams(32, 4, 8))
+
+    behavior of "Set-Associative GeneralCache"
+    performGeneralTest(p = CacheParams(32, 4, 2))
 }
