@@ -97,64 +97,62 @@ class GeneralCacheTester extends AnyFlatSpec with ChiselScalatestTester {
 
 
     def performGeneralTest(p : CacheParams) = {
-    it should "be able to read (miss, then hit) a block" in {
-        // val p = CacheParams(32, 4, 1)
-        val m = CacheModel(p)()
-        test(new GeCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
-            performReadTest(dut, m, 8)
-            performReadTest(dut, m, 8)
-        }
-    }
-
-    it should "be able to write miss then read hit a block" in {
-        // val p = CacheParams(32, 4, 1)
-        val m = CacheModel(p)()
-        test(new GeCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
-            performWriteTest(dut, m, 8, 8)
-            performReadTest(dut, m, 8)
-        }
-    }
-
-    it should "load in a block" in {
-        // val p = CacheParams(32, 4, 1)
-        val m = CacheModel(p)()
-        test(new GeCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
-            val addr = 4
-            // first miss to bring block in
-            performReadTest(dut, m, addr)
-            // now all hits
-            for (w <- 0 until p.blockSize) {
-                performReadTest(dut, m, addr+w)
+        it should "be able to read (miss, then hit) a block" in {
+            // val p = CacheParams(32, 4, 1)
+            val m = CacheModel(p)()
+            test(new GeCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+                performReadTest(dut, m, 8)
+                performReadTest(dut, m, 8)
             }
         }
-    }
 
-    it should "be able to write to all words and then read all in cache" in {
-        // val p = CacheParams(32, 4, 1)
-        // val p = CacheParams(8, 4, 1, 4)
-        val m = CacheModel(p)()
-        test(new GeCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
-            for(addr <- 0 until (1 << p.addrLen)) {
-                performWriteTest(dut, m, addr, addr)
+        it should "be able to write miss then read hit a block" in {
+            // val p = CacheParams(32, 4, 1)
+            val m = CacheModel(p)()
+            test(new GeCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+                performWriteTest(dut, m, 8, 8)
+                performReadTest(dut, m, 8)
             }
-            for(addr <- 0 until (1 << p.addrLen)) {
+        }
+
+        it should "load in a block" in {
+            // val p = CacheParams(32, 4, 1)
+            val m = CacheModel(p)()
+            test(new GeCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+                val addr = 4
+                // first miss to bring block in
                 performReadTest(dut, m, addr)
+                // now all hits
+                for (w <- 0 until p.blockSize) {
+                    performReadTest(dut, m, addr+w)
+                }
             }
         }
-    }
 
-    it should "handle thrashing 0 -> 32 -> 0" in {
-        // val p = CacheParams(32, 4, 1)
-        val m = CacheModel(p)()
-        test(new GeCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
-            performReadTest(dut, m, 0)							   // Read miss to block 0
-            performWriteTest(dut, m, 1, 1)    // Write hit to block 0
-            performWriteTest(dut, m, 32, 32)  // Write hit to block 32
-            performWriteTest(dut, m, 1, 1)    // Read miss to block 0
+        it should "be able to write to all words and then read all in cache" in {
+            // val p = CacheParams(32, 4, 1)
+            // val p = CacheParams(8, 4, 1, 4)
+            val m = CacheModel(p)()
+            test(new GeCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+                for(addr <- 0 until (1 << p.addrLen)) {
+                    performWriteTest(dut, m, addr, addr)
+                }
+                for(addr <- 0 until (1 << p.addrLen)) {
+                    performReadTest(dut, m, addr)
+                }
+            }
         }
-    }
 
-
+        it should "handle thrashing 0 -> 32 -> 0" in {
+            // val p = CacheParams(32, 4, 1)
+            val m = CacheModel(p)()
+            test(new GeCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+                performReadTest(dut, m, 0)							   // Read miss to block 0
+                performWriteTest(dut, m, 1, 1)    // Write hit to block 0
+                performWriteTest(dut, m, 32, 32)  // Write hit to block 32
+                performWriteTest(dut, m, 1, 1)    // Read miss to block 0
+            }
+        }
     }
 
     behavior of "Direct-Mapped GeneralCache"
