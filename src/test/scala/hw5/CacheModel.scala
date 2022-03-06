@@ -19,7 +19,11 @@ abstract class CacheModel(p: CacheParams, externalMem: ArrayBuffer[CacheBlockMod
             (addr << lShamt) >>> rShamt
         }
         val offset = extractBits(p.numOffsetBits - 1, 0)
-        val index = extractBits(p.numOffsetBits + p.numIndexBits - 1, p.numOffsetBits)
+        val index =
+            if (p.associativity * p.blockSize != p.capacity)
+                extractBits(p.numOffsetBits + p.numIndexBits - 1, p.numOffsetBits)
+            else
+                0
         val tag = extractBits(p.addrLen - 1, p.numOffsetBits + p.numIndexBits)
         (tag, index, offset)
     }

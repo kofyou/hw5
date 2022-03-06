@@ -33,7 +33,12 @@ class DMCacheWay(p: CacheParams) extends Module {
     // extract fields from address
     // amazing
     val tag    = io.in.bits.addr(p.addrLen - 1, p.numOffsetBits + p.numIndexBits)
-    val index  = io.in.bits.addr(p.numOffsetBits + p.numIndexBits - 1, p.numOffsetBits)
+    // if the way is fully-associative (has only one block), it has no index bits
+    val index  =
+        if (p.associativity * p.blockSize != p.capacity)
+            io.in.bits.addr(p.numOffsetBits + p.numIndexBits - 1, p.numOffsetBits)
+        else
+            0.U
     val offset = io.in.bits.addr(p.numOffsetBits - 1, 0)
 
     require(p.associativity == 1)

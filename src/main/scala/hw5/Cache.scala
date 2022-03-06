@@ -5,7 +5,7 @@ import chisel3.util._
 
 case class CacheParams(capacity: Int, blockSize: Int, associativity: Int, addrLen: Int = 8, bitsPerWord: Int = 8) {
 	require((1 << addrLen) >= capacity)
-	require(capacity > blockSize)
+	require(capacity >= blockSize)
 	require(isPow2(capacity) && isPow2(blockSize) && isPow2(associativity) && isPow2(bitsPerWord))
 	// inputs capacity & blockSize are in units of words
 
@@ -57,7 +57,13 @@ class Cache(val p: CacheParams) extends Module {
 	// extract fields from address
 	// amazing
 	val tag    = io.in.bits.addr(p.addrLen - 1, p.numOffsetBits + p.numIndexBits)
-	val index  = io.in.bits.addr(p.numOffsetBits + p.numIndexBits - 1, p.numOffsetBits)
+	// val index  = io.in.bits.addr(p.numOffsetBits + p.numIndexBits - 1, p.numOffsetBits)
+	// if the cache is fully-associative, it has no index bits
+	val index  =
+		if (p.associativity * p.blockSize != p.capacity)
+			io.in.bits.addr(p.numOffsetBits + p.numIndexBits - 1, p.numOffsetBits)
+		else
+			0.U
 	val offset = io.in.bits.addr(p.numOffsetBits - 1, 0)
 
 	// essentially making a type alias to make it easy to declare
@@ -69,6 +75,7 @@ class Cache(val p: CacheParams) extends Module {
 
 
 class DMCache(p: CacheParams) extends Cache(p) {
+	require(p.capacity > p.blockSize)
 	require(p.associativity == 1)
   // BEGIN SOLUTION
 	// quick ref: https://stackoverflow.com/questions/43646015/how-to-initialize-a-register-of-vectors
