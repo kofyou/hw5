@@ -9,7 +9,7 @@ import chiseltest._
 import chisel3.util._
 import chisel3.experimental.VecLiterals._
 import org.scalatest.flatspec.AnyFlatSpec
-
+import scala.util.Random
 
 class GeneralCacheTester extends AnyFlatSpec with ChiselScalatestTester {
     behavior of "DMCacheWay"
@@ -147,10 +147,29 @@ class GeneralCacheTester extends AnyFlatSpec with ChiselScalatestTester {
             // val p = CacheParams(32, 4, 1)
             val m = CacheModel(p)()
             test(new GeCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
-                performReadTest(dut, m, 0)							   // Read miss to block 0
-                performWriteTest(dut, m, 1, 1)    // Write hit to block 0
-                performWriteTest(dut, m, 32, 32)  // Write hit to block 32
-                performWriteTest(dut, m, 1, 1)    // Read miss to block 0
+                performReadTest(dut, m, 0)        // Read miss to addr 0 at block 0
+                performWriteTest(dut, m, 1, 1)    // Write hit to addr 0 at block 0
+                performWriteTest(dut, m, 32, 32)  // Write miss to addr 32 at block 0
+                performWriteTest(dut, m, 1, 1)    // Read miss to addr 0 at block 0
+            }
+        }
+
+        it should "handle random accesses" in {
+            // val p = CacheParams(32, 4, 1)
+            val m = CacheModel(p)()
+            test(new GeCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+                for(round <- 0 until 2 * (1 << p.addrLen)) {
+                    // ref: https://stackoverflow.com/q/39402567/15670192
+                    // [0, 1 << p.addrLen)
+                    val addr = Random.between(0, 1 << p.addrLen)
+                    // [0, 1)
+                    val read = Random.between(0, 2)
+                    if (read == 1) {
+                        performReadTest(dut, m, addr)
+                    } else {
+                        performWriteTest(dut, m, addr, addr)
+                    }
+                }
             }
         }
     }
