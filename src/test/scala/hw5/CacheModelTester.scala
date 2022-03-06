@@ -35,6 +35,7 @@ class CacheModelTester extends AnyFlatSpec with ChiselScalatestTester {
     }
 
 
+    // these are no longer testing DMCacheModel
     behavior of "DMCacheModel"
     it should "transfer block from main memory for a write and then a read" in {
         val p = CacheParams(128, 4, 1)
@@ -93,10 +94,10 @@ class CacheModelTester extends AnyFlatSpec with ChiselScalatestTester {
     }
 
 
-    behavior of "SACacheModel"
+    def testSACacheModel(replPolicy: String) = {
     it should "transfer block from main memory for a write and then a read (SA)" in {
         val p = CacheParams(128, 4, 4)
-        val m = CacheModel(p)()
+        val m = CacheModel(p, replPolicy)()
 
         // Read miss to block 0
         testRead(m, 0, 0, false)
@@ -107,7 +108,7 @@ class CacheModelTester extends AnyFlatSpec with ChiselScalatestTester {
 
     it should "load in all words of a block (SA)" in {
         val p = CacheParams(128, 4, 4)
-        val m = CacheModel(p)()
+        val m = CacheModel(p, replPolicy)()
 
         // first all misses
         for (w <- 0 until p.associativity) {
@@ -125,7 +126,7 @@ class CacheModelTester extends AnyFlatSpec with ChiselScalatestTester {
 
     it should "be able to set all words to 1 and read result in cache (SA)" in {
         val p = CacheParams(128, 4, 4)
-        val m = CacheModel(p)()
+        val m = CacheModel(p, replPolicy)()
 
         for(addr <- 0 until (1 << p.addrLen)) {
             m.write(addr, addr)
@@ -135,7 +136,7 @@ class CacheModelTester extends AnyFlatSpec with ChiselScalatestTester {
 
     it should "handle thrashing 0 -> 16 -> 0" in {
         val p = CacheParams(32, 4, 2)
-        val m = CacheModel(p)()
+        val m = CacheModel(p, replPolicy)()
 
         // Read miss to block 0
         testRead(m, 0, 0, false)
@@ -152,7 +153,7 @@ class CacheModelTester extends AnyFlatSpec with ChiselScalatestTester {
 
     it should "handle thrashing 0 -> 16 -> 32 -> 0" in {
         val p = CacheParams(32, 4, 2)
-        val m = CacheModel(p)()
+        val m = CacheModel(p, replPolicy)()
 
         // Read miss to block 0
         testRead(m, 0, 0, false)
@@ -170,6 +171,7 @@ class CacheModelTester extends AnyFlatSpec with ChiselScalatestTester {
         testRead(m, 0, 1, false)
     }
 
+    // TODO: different policies
     it should "replace first non-valid, and then go round-robin" in {
         val p = CacheParams(128, 4, 4)
         val m = new SARBCacheModel(p, ArrayBuffer.fill(p.numExtMemBlocks)(ArrayBuffer.fill(p.blockSize)(0)))
@@ -191,4 +193,13 @@ class CacheModelTester extends AnyFlatSpec with ChiselScalatestTester {
             testRead(m, addr, 0, false)
         }
     }
+
+    }
+
+    behavior of "RoundRobin SACacheModel"
+    testSACacheModel(replPolicy = "roundRobin")
+
+    // behavior of "LRU SACacheModel"
+    // use linkedHashMap to test the model
+    // testSACacheModel()
 }
