@@ -200,21 +200,23 @@ class GeCache(p: CacheParams) extends Cache(p) {
         // addr: 0 ~ 15
         // 0 ()()()() {0,1,2,3 with tag 0} {8,9,10,11 with tag 1}
         // 1 ()()()() {4,5,6,7 with tag 0} {12,13,14,15 with tag 1}
-        printf("addr: %d, off: %d, index: %d, tag: %d\n", io.in.bits.addr, offset, index, tag)
-        printf("wen: %d, wdata: %d\n", io.in.bits.write, io.in.bits.wData)
-        printf("all tags: ")
-        waySeq.foreach(x => printf("%d, ", x.io.out.bits.rTag))
-        printf("\n")
-        printf("all valids: ")
-        waySeq.foreach(x => printf("%d, ", x.io.out.bits.validLine))
-        printf("\n")
-        printf("all lines: ")
-        for( x <- waySeq ){
-            Seq.range(0, p.blockSize).foreach(index => printf("%d, ", x.io.out.bits.rLine(index.U)))
-            printf("||")
-        }
-        printf("\n")
-        printf("hit: %d\n", io.hit)
+
+        // for debug
+        // printf("addr: %d, off: %d, index: %d, tag: %d\n", io.in.bits.addr, offset, index, tag)
+        // printf("wen: %d, wdata: %d\n", io.in.bits.write, io.in.bits.wData)
+        // printf("all tags: ")
+        // waySeq.foreach(x => printf("%d, ", x.io.out.bits.rTag))
+        // printf("\n")
+        // printf("all valids: ")
+        // waySeq.foreach(x => printf("%d, ", x.io.out.bits.validLine))
+        // printf("\n")
+        // printf("all lines: ")
+        // for( x <- waySeq ){
+        //     Seq.range(0, p.blockSize).foreach(index => printf("%d, ", x.io.out.bits.rLine(index.U)))
+        //     printf("||")
+        // }
+        // printf("\n")
+        // printf("hit: %d\n", io.hit)
 
         // TODO: how is this excuted?
         waySeq.foreach(way => assert(way.io.out.valid === true.B, "assert valid at state 1"))
@@ -227,7 +229,9 @@ class GeCache(p: CacheParams) extends Cache(p) {
             // shall not be of more than one high bit tho... TODO: count high bits
             // https://www.chisel-lang.org/api/latest/chisel3/util/OHToUInt$.html
             val hitWayIndex = OHToUInt(hitSeq)
-            printf("hitIndex: %d\n\n\n", hitWayIndex)
+
+            // for debug
+            // printf("hitIndex: %d\n\n\n", hitWayIndex)
             // TODO
             val hitWayData = Wire(CacheBlock())
             hitWayData := waySeqIOVec(hitWayIndex).out.bits.rLine
@@ -266,7 +270,9 @@ class GeCache(p: CacheParams) extends Cache(p) {
                 tagReg := waySeqIOVec(replWayIndexWire).out.bits.rTag
                 wbReg := true.B
             }
-            printf("replIndex: %d\n\n\n", replWayIndexWire)
+
+            // for debug
+            // printf("replIndex: %d\n\n\n", replWayIndexWire)
             replWayIndexReg := replWayIndexWire
             state := 2.U
         }

@@ -172,7 +172,7 @@ class CacheModelTester extends AnyFlatSpec with ChiselScalatestTester {
 
     it should "replace first non-valid, and then go round-robin" in {
         val p = CacheParams(128, 4, 4)
-        val m = new SACacheModel(p, ArrayBuffer.fill(p.numExtMemBlocks)(ArrayBuffer.fill(p.blockSize)(0)))
+        val m = new SARBCacheModel(p, ArrayBuffer.fill(p.numExtMemBlocks)(ArrayBuffer.fill(p.blockSize)(0)))
 
         // fill up all blocks in a set in order
         for (w <- 0 until p.associativity) {

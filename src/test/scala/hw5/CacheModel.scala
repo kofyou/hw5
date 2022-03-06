@@ -62,11 +62,6 @@ class DMCacheModel(p: CacheParams, externalMem: ArrayBuffer[CacheBlockModel]) ex
         }
     }
 
-    def isValid(addr: Int): Boolean = {
-        val (tag, index, offset) = findCacheAddressFields(addr)
-        valids(index)
-    }
-
     def getReferenceToBlock(addr: Int): CacheBlockModel = {
         val (tag, index, offset) = findCacheAddressFields(addr)
         if (isHit(addr) == false) {
@@ -83,26 +78,36 @@ class DMCacheModel(p: CacheParams, externalMem: ArrayBuffer[CacheBlockModel]) ex
     }
 }
 
-class SACacheModel(p: CacheParams, externalMem: ArrayBuffer[CacheBlockModel]) extends CacheModel(p, externalMem) {
+abstract class SACacheModel(p: CacheParams, externalMem: ArrayBuffer[CacheBlockModel]) extends CacheModel(p, externalMem) {
     val wayParams = p.copy(capacity=p.capacity/p.associativity, associativity = 1)
     val ways = Seq.fill(p.associativity)(new DMCacheModel(wayParams, externalMem))
-    val replacementIndices = ArrayBuffer.fill(p.numSets)(0)
-    
+    val fillIndices = ArrayBuffer.fill(p.numSets)(0)
+
     // BEGIN SOLUTION
-    def wayToReplace(addr: Int): Int = {
-        val idleWaysWithIndex = ways.zipWithIndex.filter{ case(way, wayIndex) => way.isValid(addr) == false}
-        // val idleWaysWithIndex = ways.zipWithIndex.filter( case(way, wayIndex) => way.isValid(addr) == false)
-        // illegal start of simple expression
-        if (idleWaysWithIndex.size > 0) {
-            idleWaysWithIndex.head._2
-        } else {
-            val (tag, index, offset) = findCacheAddressFields(addr)
-            val returnIndex = replacementIndices(index)
-            replacementIndices(index) = (replacementIndices(index) + 1) % p.associativity
-            returnIndex
+    def lookUpReplPolicy(index: Int): Int
+    def updateReplPolicy(addr: Int, way: Int): Unit
+
+    def lookUpFillPolicy(index: Int): Int = {
+        fillIndices(index)
+    }
+
+    def updateFillPolicy(addr: Int): Unit = {
+        val (tag, index, offset) = findCacheAddressFields(addr)
+        if (fillIndices(index) < p.associativity) {
+            fillIndices(index) = fillIndices(index) + 1
         }
     }
 
+    def wayToReplace(addr: Int): Int = {
+        val (tag, index, offset) = findCacheAddressFields(addr)
+        if (fillIndices(index) < p.associativity) {
+            lookUpFillPolicy(index)
+        } else {
+            lookUpReplPolicy(index)
+        }
+    }
+
+    // external for tests
     def isHit(addr: Int): Boolean = {
         val theWay = ways.filter(_.isHit(addr) == true)
         if (theWay.size == 1) {
@@ -115,28 +120,85 @@ class SACacheModel(p: CacheParams, externalMem: ArrayBuffer[CacheBlockModel]) ex
         }
     }
 
+    // internal for lookups
+    def findHit(addr: Int) = {
+        val theWay = ways.zipWithIndex.filter{ case(way, wayIndex) => way.isHit(addr) == true}
+        if (theWay.size == 1) {
+            (true, theWay.head._2)
+        } else if(theWay.size == 0) {
+            (false, -1)
+        } else {
+            println("OH NO ISHIT BUGGY")
+            (false, -1)
+        }
+    }
+
     def getReferenceToBlock(addr: Int): CacheBlockModel = {
         // index of seq -> which slot of the sets
-        // for(isHit == true) -> seq index
-        if (isHit(addr) == false) {
+        val (isHit, hitWayIndex) = findHit(addr)
+        if (isHit == false) {
             val wayReplaceIndex = wayToReplace(addr)
-            // will miss and replace
+            // based on fill / repl, not always need to update two policies
+            // cannot switch order
+            updateReplPolicy(addr, wayReplaceIndex)
+            updateFillPolicy(addr)
             ways(wayReplaceIndex).getReferenceToBlock(addr)
         } else {
-            val theWay = ways.filter(_.isHit(addr) == true)
-            // will hit
-            theWay.head.getReferenceToBlock(addr)
+            updateReplPolicy(addr, hitWayIndex)
+            ways(hitWayIndex).getReferenceToBlock(addr)
         }
     }
 }
 
+class SARBCacheModel(p: CacheParams, externalMem: ArrayBuffer[CacheBlockModel]) extends SACacheModel(p, externalMem) {
+    val replacementIndices = ArrayBuffer.fill(p.numSets)(0)
+
+    def lookUpReplPolicy(index: Int): Int = {
+        val replaceWay = replacementIndices(index)
+        replacementIndices(index) = (replacementIndices(index) + 1) % p.associativity
+        replaceWay
+    }
+
+    // lookUpReplPolicy does it all at once
+    // would be better if i carefully distinguish two diffrent types of update
+    def updateReplPolicy(addr: Int, way: Int): Unit = {}
+}
+
+class SALRUCacheModel(p: CacheParams, externalMem: ArrayBuffer[CacheBlockModel]) extends SACacheModel(p, externalMem) {
+    val setWayUsage = Seq.fill(p.numSets)(ArrayBuffer.fill(p.associativity)(-1))
+
+    // return the oldest index of block (way)
+    def lookUpReplPolicy(index: Int): Int = {
+        setWayUsage(index).indexOf(setWayUsage(index).max)
+    }
+
+    // uniformly update ranks
+    def updateReplPolicy(addr: Int, way: Int): Unit = {
+        val (tag, index, offset) = findCacheAddressFields(addr)
+        if (fillIndices(index) < p.associativity) {
+            assert(way == fillIndices(index))
+            for (wi <- 0 until way) {
+                setWayUsage(index)(wi) += 1
+            }
+        } else {
+            val theRank = setWayUsage(index)(way)
+            // for those nonempty blocks, update their ranks comparatively
+            for (wi <- 0 until p.associativity) {
+                if (setWayUsage(index)(wi) < theRank) {
+                    setWayUsage(index)(wi) += 1
+                }
+            }
+        }
+        setWayUsage(index)(way) = 0
+    }
+}
 
 object CacheModel {
     type CacheBlockModel = ArrayBuffer[Int]
 
-    def apply(p: CacheParams)
+    def apply(p: CacheParams, replPolicy: String = "roundRobin")
              (externalMem: ArrayBuffer[CacheBlockModel] = ArrayBuffer.fill(p.numExtMemBlocks)(ArrayBuffer.fill(p.blockSize)(0))): CacheModel = {
-        if (p.associativity == 1) new DMCacheModel(p, externalMem)
-        else new SACacheModel(p, externalMem)
+        if (replPolicy == "roundRobin") new SARBCacheModel(p, externalMem)
+        else new SALRUCacheModel(p, externalMem)
     }
 }

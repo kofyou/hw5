@@ -96,10 +96,10 @@ class GeneralCacheTester extends AnyFlatSpec with ChiselScalatestTester {
     }
 
 
-    def performGeneralTest(p : CacheParams) = {
+    def performGeneralTest(p : CacheParams, replPolicy: String) = {
         it should "be able to read (miss, then hit) a block" in {
             // val p = CacheParams(32, 4, 1)
-            val m = CacheModel(p)()
+            val m = CacheModel(p, replPolicy)()
             test(new GeCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
                 performReadTest(dut, m, 8)
                 performReadTest(dut, m, 8)
@@ -108,7 +108,7 @@ class GeneralCacheTester extends AnyFlatSpec with ChiselScalatestTester {
 
         it should "be able to write miss then read hit a block" in {
             // val p = CacheParams(32, 4, 1)
-            val m = CacheModel(p)()
+            val m = CacheModel(p, replPolicy)()
             test(new GeCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
                 performWriteTest(dut, m, 8, 8)
                 performReadTest(dut, m, 8)
@@ -117,7 +117,7 @@ class GeneralCacheTester extends AnyFlatSpec with ChiselScalatestTester {
 
         it should "load in a block" in {
             // val p = CacheParams(32, 4, 1)
-            val m = CacheModel(p)()
+            val m = CacheModel(p, replPolicy)()
             test(new GeCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
                 val addr = 4
                 // first miss to bring block in
@@ -132,7 +132,7 @@ class GeneralCacheTester extends AnyFlatSpec with ChiselScalatestTester {
         it should "be able to write to all words and then read all in cache" in {
             // val p = CacheParams(32, 4, 1)
             // val p = CacheParams(8, 4, 1, 4)
-            val m = CacheModel(p)()
+            val m = CacheModel(p, replPolicy)()
             test(new GeCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
                 for(addr <- 0 until (1 << p.addrLen)) {
                     performWriteTest(dut, m, addr, addr)
@@ -145,7 +145,7 @@ class GeneralCacheTester extends AnyFlatSpec with ChiselScalatestTester {
 
         it should "handle thrashing 0 -> 32 -> 0" in {
             // val p = CacheParams(32, 4, 1)
-            val m = CacheModel(p)()
+            val m = CacheModel(p, replPolicy)()
             test(new GeCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
                 performReadTest(dut, m, 0)        // Read miss to addr 0 at block 0
                 performWriteTest(dut, m, 1, 1)    // Write hit to addr 0 at block 0
@@ -156,7 +156,7 @@ class GeneralCacheTester extends AnyFlatSpec with ChiselScalatestTester {
 
         it should "handle random accesses" in {
             // val p = CacheParams(32, 4, 1)
-            val m = CacheModel(p)()
+            val m = CacheModel(p, replPolicy)()
             test(new GeCache(p)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
                 for(round <- 0 until 2 * (1 << p.addrLen)) {
                     // ref: https://stackoverflow.com/q/39402567/15670192
@@ -175,11 +175,11 @@ class GeneralCacheTester extends AnyFlatSpec with ChiselScalatestTester {
     }
 
     behavior of "Direct-Mapped GeneralCache"
-    performGeneralTest(p = CacheParams(32, 4, 1))
+    performGeneralTest(p = CacheParams(32, 4, 1), replPolicy = "roundRobin")
 
     behavior of "Fully-Associative GeneralCache"
-    performGeneralTest(p = CacheParams(32, 4, 8))
+    performGeneralTest(p = CacheParams(32, 4, 8), replPolicy = "roundRobin")
 
     behavior of "Set-Associative GeneralCache"
-    performGeneralTest(p = CacheParams(32, 4, 2))
+    performGeneralTest(p = CacheParams(32, 4, 2), replPolicy = "roundRobin")
 }
