@@ -175,8 +175,8 @@ class SALRUCacheModel(p: CacheParams, externalMem: ArrayBuffer[CacheBlockModel])
     // uniformly update ranks
     def updateReplPolicy(addr: Int, way: Int): Unit = {
         val (tag, index, offset) = findCacheAddressFields(addr)
-        if (fillIndices(index) < p.associativity) {
-            assert(way == fillIndices(index))
+        if (setWayUsage(index)(way) == -1) {
+            assert(fillIndices(index) < p.associativity)
             for (wi <- 0 until way) {
                 setWayUsage(index)(wi) += 1
             }
