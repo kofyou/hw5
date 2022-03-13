@@ -147,7 +147,7 @@ class CacheModelTester extends AnyFlatSpec with ChiselScalatestTester {
         // Write miss to block 16
         testWrite(m, 16, 16, false)
 
-        // Read miss to block 0
+        // Read hit to block 0
         testRead(m, 0, 1, true)
     }
 
@@ -172,9 +172,10 @@ class CacheModelTester extends AnyFlatSpec with ChiselScalatestTester {
     }
 
     // TODO: different policies
-    it should "replace first non-valid, and then go round-robin" in {
+    it should "replace first non-valid, and then evict in order for round-robin or LRU" in {
         val p = CacheParams(128, 4, 4)
-        val m = new SARBCacheModel(p, ArrayBuffer.fill(p.numExtMemBlocks)(ArrayBuffer.fill(p.blockSize)(0)))
+        // val m = new SARBCacheModel(p, ArrayBuffer.fill(p.numExtMemBlocks)(ArrayBuffer.fill(p.blockSize)(0)))
+        val m = CacheModel(p, replPolicy)()
 
         // fill up all blocks in a set in order
         for (w <- 0 until p.associativity) {
@@ -188,8 +189,7 @@ class CacheModelTester extends AnyFlatSpec with ChiselScalatestTester {
         for (w <- 0 until p.associativity) {
             // add capacity, so tags are different
             val addr = w * p.numSets * p.blockSize + p.capacity
-            val (tag, index, offset) = m.findCacheAddressFields(addr)
-            assert(m.replacementIndices(index) == w)
+            assert(m.wayToReplace(addr) == w)
             testRead(m, addr, 0, false)
         }
     }
@@ -199,7 +199,7 @@ class CacheModelTester extends AnyFlatSpec with ChiselScalatestTester {
     behavior of "RoundRobin SACacheModel"
     testSACacheModel(replPolicy = "roundRobin")
 
-    // behavior of "LRU SACacheModel"
+    behavior of "LRU SACacheModel"
     // use linkedHashMap to test the model
-    // testSACacheModel()
+    testSACacheModel(replPolicy = "LRU")
 }
