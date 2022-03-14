@@ -104,7 +104,7 @@ class DMCacheWay(p: CacheParams) extends Module {
 }
 
 // for control
-class GeCache(p: CacheParams) extends Cache(p) {
+abstract class GeCache(p: CacheParams) extends Cache(p) {
     // seq only takes scala index. if indexing by chisel should use vec
     val wayParams = p.copy(capacity=p.capacity/p.associativity, associativity = 1)
     // val waySeq = Seq.fill(p.associativity)(Module(new DMCacheWay(wayParams)).io)
@@ -162,20 +162,15 @@ class GeCache(p: CacheParams) extends Cache(p) {
     // dataReg := dataReadWire
     // tagReg := tagReadWire
 
-    // TODO: parameterize replacement policy
     val roundRobinRegs = RegInit(VecInit(Seq.fill(p.numSets)(0.U(log2Ceil(p.associativity + 1).W))))
-    def getReplIndex(): UInt = {
-        roundRobinRegs(index)
-    }
+    def getReplIndex(): UInt
 
     // TODO: UInt and Wire(UInt)?
-    def updatePolicyWhenHit(wayIndex: UInt): Unit = {}
+    def updatePolicyWhenHit(wayIndex: UInt): Unit
 
-    def updatePolicyWhenMissFill(wayIndex: UInt): Unit = {}
+    def updatePolicyWhenMissFill(wayIndex: UInt): Unit
 
-    def updatePolicyWhenMissRepl(wayIndex: UInt): Unit = {
-        roundRobinRegs(index) := (roundRobinRegs(index) + 1.U) % p.associativity.U
-    }
+    def updatePolicyWhenMissRepl(wayIndex: UInt): Unit
 
     // TODO: opt way io, like is decouple necessarry?
     // TODO: index is not used in this level?
@@ -315,5 +310,43 @@ class GeCache(p: CacheParams) extends Cache(p) {
         }
         io.out.valid := true.B
         state := 0.U
+    }
+}
+
+class GeRBCache(p: CacheParams) extends GeCache(p) {
+    // TODO: figure out why
+    // val roundRobinRegs = RegInit(VecInit(Seq.fill(p.numSets)(0.U(log2Ceil(p.associativity + 1).W))))
+    def getReplIndex(): UInt = {
+        roundRobinRegs(index)
+    }
+
+    def updatePolicyWhenHit(wayIndex: UInt): Unit = {}
+
+    def updatePolicyWhenMissFill(wayIndex: UInt): Unit = {}
+
+    def updatePolicyWhenMissRepl(wayIndex: UInt): Unit = {
+        roundRobinRegs(index) := (roundRobinRegs(index) + 1.U) % p.associativity.U
+    }
+}
+
+class GeLRUCache(p: CacheParams) extends GeCache(p) {
+    // val roundRobinRegs = RegInit(VecInit(Seq.fill(p.numSets)(0.U(log2Ceil(p.associativity + 1).W))))
+    def getReplIndex(): UInt = {
+        roundRobinRegs(index)
+    }
+
+    def updatePolicyWhenHit(wayIndex: UInt): Unit = {}
+
+    def updatePolicyWhenMissFill(wayIndex: UInt): Unit = {}
+
+    def updatePolicyWhenMissRepl(wayIndex: UInt): Unit = {
+        roundRobinRegs(index) := (roundRobinRegs(index) + 1.U) % p.associativity.U
+    }
+}
+
+object GeCache {
+    def apply(p: CacheParams, replPolicy: String = "roundRobin"): GeCache = {
+        if (replPolicy == "roundRobin") new GeRBCache(p)
+        else new GeLRUCache(p)
     }
 }
