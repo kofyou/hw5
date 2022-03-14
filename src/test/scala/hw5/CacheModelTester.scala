@@ -235,4 +235,43 @@ class CacheModelTester extends AnyFlatSpec with ChiselScalatestTester {
             testRead(m, addr, 0, false)
         }
     }
+
+    it should "replace first half non-valid, update order, replace second half, and then evict the eldest" in {
+        val p = CacheParams(128, 4, 4)
+        // val m = new SARBCacheModel(p, ArrayBuffer.fill(p.numExtMemBlocks)(ArrayBuffer.fill(p.blockSize)(0)))
+        val m = CacheModel(p, "LRU")()
+
+        // fill up first half blocks in a set in order
+        for (w <- 0 until p.associativity / 2) {
+            // line in one set are not continuous babe
+            val addr = w * p.numSets * p.blockSize
+            assert(m.wayToReplace(addr) == w)
+            testRead(m, addr, 0, false)
+        }
+
+        // age: 1,0,4,4 -> 1,0,4,4 -> 0,1,4,4
+        for (w <- p.associativity / 2 - 1 to 0 by -1) {
+            val addr = w * p.numSets * p.blockSize
+            testRead(m, addr, 0, true)
+            assert(m.wayToReplace(addr) == p.associativity / 2)
+        }
+
+        // fill up second half blocks in a set in order
+        // age: 0,1,4,4 -> 1,2,0,4 -> 2,3,1,0
+        for (w <- p.associativity / 2 until p.associativity) {
+            // line in one set are not continuous babe
+            val addr = w * p.numSets * p.blockSize
+            assert(m.wayToReplace(addr) == w)
+            testRead(m, addr, 0, false)
+        }
+
+        // replace index 1,0,2,3 in order
+        val evictSeq = Seq(1,0,2,3)
+        for (w <- 0 until p.associativity) {
+            // add capacity, so tags are different
+            val addr = w * p.numSets * p.blockSize + p.capacity
+            assert(m.wayToReplace(addr) == evictSeq(w))
+            testRead(m, addr, 0, false)
+        }
+    }
 }
