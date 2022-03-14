@@ -177,27 +177,24 @@ class SARBCacheModel(p: CacheParams, externalMem: ArrayBuffer[CacheBlockModel]) 
 }
 
 class SALRUCacheModel(p: CacheParams, externalMem: ArrayBuffer[CacheBlockModel]) extends SACacheModel(p, externalMem) {
-    val setWayUsage = Seq.fill(p.numSets)(ArrayBuffer.fill(p.associativity)(-1))
+    val setWayUsage = Seq.fill(p.numSets)(ArrayBuffer.fill(p.associativity)(p.associativity))
 
     // return the oldest index of block (way)
+    // when called, all ways are filled
     def lookUpReplPolicy(index: Int): Int = {
         setWayUsage(index).indexOf(setWayUsage(index).max)
     }
 
     // uniformly update ranks
     def updateReplPolicy(index: Int, wayIndex: Int): Unit = {
-        if (setWayUsage(index)(wayIndex) == -1) {
-            assert(fillIndices(index) < p.associativity)
-            for (wi <- 0 until wayIndex) {
+        // invalid block has age = associativity,
+        // all four cases are included
+        // miss: filling, filled
+        // hit:  filling, filled
+        val theRank = setWayUsage(index)(wayIndex)
+        for (wi <- 0 until p.associativity) {
+            if (setWayUsage(index)(wi) < theRank) {
                 setWayUsage(index)(wi) += 1
-            }
-        } else {
-            val theRank = setWayUsage(index)(wayIndex)
-            // for those nonempty blocks, update their ranks comparatively
-            for (wi <- 0 until p.associativity) {
-                if (setWayUsage(index)(wi) < theRank) {
-                    setWayUsage(index)(wi) += 1
-                }
             }
         }
         setWayUsage(index)(wayIndex) = 0
