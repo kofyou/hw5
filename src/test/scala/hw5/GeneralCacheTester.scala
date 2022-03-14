@@ -175,23 +175,33 @@ class GeneralCacheTester extends AnyFlatSpec with ChiselScalatestTester {
         }
     }
 
-    behavior of "roundRobin Direct-Mapped GeCache General Functionality"
-    performGeneralTest(p = CacheParams(32, 4, 1), replPolicy = "roundRobin")
+    def performGeneralTestParams(p: CacheParams) = {
+        behavior of "roundRobin Direct-Mapped GeCache General Functionality"
+        performGeneralTest(p, replPolicy = "roundRobin")
 
-    behavior of "roundRobin Fully-Associative GeCache General Functionality"
-    performGeneralTest(p = CacheParams(32, 4, 8), replPolicy = "roundRobin")
+        behavior of "roundRobin Fully-Associative GeCache General Functionality"
+        performGeneralTest(p.copy(associativity = p.numSets), replPolicy = "roundRobin")
 
-    behavior of "roundRobin Set-Associative GeCache General Functionality"
-    performGeneralTest(p = CacheParams(32, 4, 2), replPolicy = "roundRobin")
+        behavior of "roundRobin Set-Associative GeCache General Functionality"
+        performGeneralTest(p.copy(associativity = p.numSets / 2), replPolicy = "roundRobin")
 
-    behavior of "LRU Direct-Mapped GeCache General Functionality"
-    performGeneralTest(p = CacheParams(32, 4, 1), replPolicy = "LRU")
+        behavior of "LRU Direct-Mapped GeCache General Functionality"
+        performGeneralTest(p, replPolicy = "LRU")
 
-    behavior of "LRU Fully-Associative GeCache General Functionality"
-    performGeneralTest(p = CacheParams(32, 4, 8), replPolicy = "LRU")
+        behavior of "LRU Fully-Associative GeCache General Functionality"
+        performGeneralTest(p.copy(associativity = p.numSets), replPolicy = "LRU")
 
-    behavior of "LRU Set-Associative GeCache General Functionality"
-    performGeneralTest(p = CacheParams(32, 4, 2), replPolicy = "LRU")
+        behavior of "LRU Set-Associative GeCache General Functionality"
+        performGeneralTest(p.copy(associativity = p.numSets / 2), replPolicy = "LRU")
+    }
+
+    // TODO: duplicate test name
+    // behavior of "GeCache CacheParams(8, 1, x)"
+    // performGeneralTestParams(p = CacheParams(8, 2, 1))
+    behavior of "GeCache CacheParams(32, 4, x)"
+    performGeneralTestParams(p = CacheParams(32, 4, 1))
+    // behavior of "GeCache CacheParams(128, 4, x)"
+    // performGeneralTestParams(p = CacheParams(128, 4, 1))
 
     behavior of "LRU GeCache Replacement"
     it should "replace first half non-valid, update order, replace second half, and then evict the eldest" in {
