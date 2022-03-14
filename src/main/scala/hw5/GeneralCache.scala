@@ -163,14 +163,18 @@ abstract class GeCache(p: CacheParams) extends Cache(p) {
     // tagReg := tagReadWire
 
     val roundRobinRegs = RegInit(VecInit(Seq.fill(p.numSets)(0.U(log2Ceil(p.associativity + 1).W))))
+
+    // set-way ages
+    val LRURelativeOrder = RegInit(VecInit.fill(p.numSets, p.associativity)(p.associativity.U(log2Ceil(p.associativity + 1).W)))
+
     def getReplIndex(): UInt
 
     // TODO: UInt and Wire(UInt)?
     def updatePolicyWhenHit(wayIndex: UInt): Unit
 
-    def updatePolicyWhenMissFill(wayIndex: UInt): Unit
+    def updatePolicyWhenMissFilling(wayIndex: UInt): Unit
 
-    def updatePolicyWhenMissRepl(wayIndex: UInt): Unit
+    def updatePolicyWhenMissFilled(wayIndex: UInt): Unit
 
     // TODO: opt way io, like is decouple necessarry?
     // TODO: index is not used in this level?
@@ -257,18 +261,18 @@ abstract class GeCache(p: CacheParams) extends Cache(p) {
             extMem.io.rEn := true.B
 
             val replWayIndexWire = Wire(UInt(log2Ceil(p.associativity + 1).W))
-            val validLineSeq = wayIOVec.map(!_.out.bits.validLine)
-            // when (VecInit(validLineSeq).asUInt =/= 0.U) {
-            when (validLineSeq.reduce((valid1,valid2) => valid1 || valid2) === true.B) {
+            val invalidVec = wayIOVec.map(!_.out.bits.validLine)
+            val atLeastOneInvalid = invalidVec.reduce((invalid1, invalid2) => invalid1 || invalid2)
+            when (atLeastOneInvalid) {
                 // get first invalid way index
                 // TODO: why do not take vec of bool?
                 // - 1.U: seems start from 0
                 // https://www.chisel-lang.org/api/latest/chisel3/util/PriorityEncoder$.html
-                replWayIndexWire := PriorityEncoder(validLineSeq)
-                updatePolicyWhenMissFill(replWayIndexWire)
+                replWayIndexWire := PriorityEncoder(invalidVec)
+                updatePolicyWhenMissFilling(replWayIndexWire)
             } .otherwise {
                 replWayIndexWire := getReplIndex()
-                updatePolicyWhenMissRepl(replWayIndexWire)
+                updatePolicyWhenMissFilled(replWayIndexWire)
                 dataReg := wayIOVec(replWayIndexWire).out.bits.rLine
                 tagReg := wayIOVec(replWayIndexWire).out.bits.rTag
                 wbReg := true.B
@@ -322,25 +326,33 @@ class GeRBCache(p: CacheParams) extends GeCache(p) {
 
     def updatePolicyWhenHit(wayIndex: UInt): Unit = {}
 
-    def updatePolicyWhenMissFill(wayIndex: UInt): Unit = {}
+    def updatePolicyWhenMissFilling(wayIndex: UInt): Unit = {}
 
-    def updatePolicyWhenMissRepl(wayIndex: UInt): Unit = {
+    def updatePolicyWhenMissFilled(wayIndex: UInt): Unit = {
         roundRobinRegs(index) := (roundRobinRegs(index) + 1.U) % p.associativity.U
     }
 }
 
 class GeLRUCache(p: CacheParams) extends GeCache(p) {
-    // val roundRobinRegs = RegInit(VecInit(Seq.fill(p.numSets)(0.U(log2Ceil(p.associativity + 1).W))))
     def getReplIndex(): UInt = {
-        roundRobinRegs(index)
+        LRURelativeOrder(index).indexWhere(age => age === (p.associativity - 1).U)
     }
 
-    def updatePolicyWhenHit(wayIndex: UInt): Unit = {}
+    def updatePolicy(wayIndex: UInt): Unit = {
+        LRURelativeOrder(index).foreach(age => Mux(age < LRURelativeOrder(index)(wayIndex), age + 1.U, age))
+        LRURelativeOrder(index)(wayIndex) := 0.U
+    }
 
-    def updatePolicyWhenMissFill(wayIndex: UInt): Unit = {}
+    def updatePolicyWhenHit(wayIndex: UInt): Unit = {
+        updatePolicy(wayIndex)
+    }
 
-    def updatePolicyWhenMissRepl(wayIndex: UInt): Unit = {
-        roundRobinRegs(index) := (roundRobinRegs(index) + 1.U) % p.associativity.U
+    def updatePolicyWhenMissFilling(wayIndex: UInt): Unit = {
+        updatePolicy(wayIndex)
+    }
+
+    def updatePolicyWhenMissFilled(wayIndex: UInt): Unit = {
+        updatePolicy(wayIndex)
     }
 }
 
