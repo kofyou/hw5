@@ -166,6 +166,7 @@ abstract class GeCache(p: CacheParams) extends Cache(p) {
     val roundRobinRegs = RegInit(VecInit(Seq.fill(p.numSets)(0.U(log2Ceil(p.associativity + 1).W))))
 
     // set-way ages
+    // ref: https://www.chisel-lang.org/chisel3/docs/cookbooks/cookbook.html#can-i-make-a-2d-or-3d-vector
     val LRURelativeOrder = RegInit(VecInit.fill(p.numSets, p.associativity)(p.associativity.U(log2Ceil(p.associativity + 1).W)))
 
     def getReplIndex(): UInt
