@@ -192,4 +192,44 @@ class GeneralCacheTester extends AnyFlatSpec with ChiselScalatestTester {
 
     behavior of "LRU Set-Associative GeCache General Functionality"
     performGeneralTest(p = CacheParams(32, 4, 2), replPolicy = "LRU")
+
+    behavior of "LRU GeCache Replacement"
+    it should "replace first half non-valid, update order, replace second half, and then evict the eldest" in {
+        val p = CacheParams(32, 4, 8)
+        val m = CacheModel(p, "LRU")()
+        test(GeCache(p, "LRU")).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
+
+            for(addr <- 0 until (1 << p.addrLen)) {
+                performWriteTest(dut, m, addr, addr)
+            }
+            for(addr <- 0 until (1 << p.addrLen)) {
+                performReadTest(dut, m, addr)
+            }
+
+            // fill up first half blocks in a set in order
+            for (w <- 0 until p.associativity / 2) {
+                val addr = w * p.numSets * p.blockSize
+                performReadTest(dut, m, addr)
+            }
+
+            // flip first half order
+            for (w <- p.associativity / 2 - 1 to 0 by -1) {
+                val addr = w * p.numSets * p.blockSize
+                performReadTest(dut, m, addr)
+            }
+
+            // fill up second half blocks in a set in order
+            for (w <- p.associativity / 2 until p.associativity) {
+                val addr = w * p.numSets * p.blockSize
+                performReadTest(dut, m, addr)
+            }
+
+            // evict
+            val evictSeq = Seq(1,0,2,3)
+            for (w <- 0 until p.associativity) {
+                val addr = w * p.numSets * p.blockSize + p.capacity
+                performReadTest(dut, m, addr)
+            }
+        }
+    }
 }
