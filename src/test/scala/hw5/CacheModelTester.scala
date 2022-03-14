@@ -171,7 +171,6 @@ class CacheModelTester extends AnyFlatSpec with ChiselScalatestTester {
         testRead(m, 0, 1, false)
     }
 
-    // TODO: different policies
     it should "replace first non-valid, and then evict in order for round-robin or LRU" in {
         val p = CacheParams(128, 4, 4)
         // val m = new SARBCacheModel(p, ArrayBuffer.fill(p.numExtMemBlocks)(ArrayBuffer.fill(p.blockSize)(0)))
@@ -196,10 +195,44 @@ class CacheModelTester extends AnyFlatSpec with ChiselScalatestTester {
 
     }
 
-    behavior of "RoundRobin SACacheModel"
+    behavior of "RoundRobin SACacheModel General Functionality"
     testSACacheModel(replPolicy = "roundRobin")
 
-    behavior of "LRU SACacheModel"
+    behavior of "LRU SACacheModel General Functionality"
     // use linkedHashMap to test the model
     testSACacheModel(replPolicy = "LRU")
+
+    behavior of "LRU SACacheModel Replacement"
+    it should "replace first non-valid, and then evict the eldest" in {
+        val p = CacheParams(128, 4, 4)
+        // val m = new SARBCacheModel(p, ArrayBuffer.fill(p.numExtMemBlocks)(ArrayBuffer.fill(p.blockSize)(0)))
+        val m = CacheModel(p, "LRU")()
+
+        // fill up all blocks in a set in order
+        for (w <- 0 until p.associativity) {
+            // line in one set are not continuous babe
+            val addr = w * p.numSets * p.blockSize
+            assert(m.wayToReplace(addr) == w)
+            testRead(m, addr, 0, false)
+        }
+
+        // age: 3,2,1,0 -> 3,2,1,0 -> 3,2,0,1 -> 3,0,1,2 -> 0,1,2,3
+        for (w <- p.associativity - 1 to 0 by -1) {
+            val addr = w * p.numSets * p.blockSize
+            testRead(m, addr, 0, true)
+            if (w != 0) {
+                assert(m.wayToReplace(addr) == 0)
+            } else {
+                assert(m.wayToReplace(addr) == p.associativity - 1)
+            }
+        }
+
+        // replace index 3,2,1,0 in order
+        for (w <- 0 until p.associativity) {
+            // add capacity, so tags are different
+            val addr = w * p.numSets * p.blockSize + p.capacity
+            assert(m.wayToReplace(addr) == p.associativity - 1 - w)
+            testRead(m, addr, 0, false)
+        }
+    }
 }
