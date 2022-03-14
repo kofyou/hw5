@@ -3,17 +3,48 @@ Project - Homework 5 Extension
 
 This Project for [Agile Hardware Design](https://classes.soe.ucsc.edu/cse293/Winter22/) will extend [Homework 5](https://github.com/agile-hw/hw5) -- implementing a cache generator, and it inherits the framework. Based on what is already done, the next steps include set-associative cache, LRU replacement policy, and (potentially) non-blocking cache.
 
-## Iteration 1 - Set-Associative Cache
+```
+ |-src
+ | |-main
+ | | |-scala
+ | | | |-hw5
+ | | | | |-Cache.scala
+ | | | | |-GeneralCache.scala (DMCacheWay, GeCache, GeRBCache, GeLRUCache)
+ | |-test
+ | | |-scala
+ | | | |-hw5
+ | | | | |-CacheModel.scala (SACacheModel, SARBCacheModel, SALRUCacheModel)
+ | | | | |-CacheModelTester.scala (LRU Scala model Tests)
+ | | | | |-CacheTester.scala
+ | | | | |-GeneralCacheTester.scala (LRU Chisel module Tests)
+```
+
+## Objective 1 - Set-Associative Cache
 `GeneralCache.scala` contains two new classes. They are designed by partitioning the functionalities of the `Cache` class into two parts, following the ideas when we implement the cache model in scala.
 
 - `DMCacheWay` is for storage and it behaves like a direct-mapped cache. We can write a block to it, or read a block and some control information from it (with one cycle of delay).
 - `GeCache` is for control and it contains a set of `DMCacheWay`. Based on the inputs and information returned by the ways, it further communicates with external memories, updates the ways, or handles the outputs.
 
-`GeneralCacheTester.scala` uses `CacheTester.scala` as a template and will contain tests for both classes. Because the specifications of the cache remain the same, the test harness provided in homework 5 will still work. (And it shall pass all existing tests for the direct-mapped cache). Thank you, Amogh and Professor Beamer!
+## Objective 2 - LRU Replacement Policy
 
-- A simple write and read test for `DMCacheWay` is passed.
-- **[In-Progress]** A simple read test for `GeCache` will fail because the current implementation contains combinational loops. Still working on it.
-- **[In-Progress]** Add more tests for the fully-associative and set-associative cache.
+For Scala Cache Model: In `CacheModel.scala`, two classes `SARBCacheModel` and `SALRUCacheModel` extend `SACacheModel` to support round-robin and LRU policy.
+
+- `SALRUCacheModel` maintains the replacement order for each index. Each access updates the order and each eviction replaces the eldest way under the index.
+
+For Chisel Cache Module: In `CacheModel.scala`, two classes `GeRBCache` and `GeLRUCache` extend `GeCache` to support round-robin and LRU policy.
+
+- `GeLRUCache` implements the same strategies as the LRU model.
+- [**In-Progress**] Alternative to the order strategy: use state machine to update and replace.
+
+## Tests
+
+`GeneralCacheTester.scala` uses `CacheTester.scala` as a template and will contain tests for Chisel modules. Because the specifications of the cache remain the same, the test harness provided in homework 5 will still work. (And it shall pass all existing tests for the direct-mapped cache). Thank you, Amogh and Professor Beamer!
+
+- A simple write and read test for `DMCacheWay`
+- The existing trashing test is generalized for cache with different associativity.
+- A simple random access test
+- Existing tests are encapsulated to test against the `GeCache` under different settings.
+- An LRU test
 
 
 
