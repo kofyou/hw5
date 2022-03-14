@@ -339,7 +339,7 @@ class GeLRUCache(p: CacheParams) extends GeCache(p) {
     }
 
     def updatePolicy(wayIndex: UInt): Unit = {
-        LRURelativeOrder(index).foreach(age => Mux(age < LRURelativeOrder(index)(wayIndex), age + 1.U, age))
+        LRURelativeOrder(index).foreach(age => age := Mux(age < LRURelativeOrder(index)(wayIndex), age + 1.U, age))
         LRURelativeOrder(index)(wayIndex) := 0.U
     }
 
