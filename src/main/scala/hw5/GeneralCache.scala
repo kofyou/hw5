@@ -164,9 +164,17 @@ class GeCache(p: CacheParams) extends Cache(p) {
 
     // TODO: parameterize replacement policy
     val roundRobinRegs = RegInit(VecInit(Seq.fill(p.numSets)(0.U(log2Ceil(p.associativity + 1).W))))
-    def getReplIndex(setIndex: UInt): UInt = {
-        roundRobinRegs(setIndex) := (roundRobinRegs(setIndex) + 1.U) % p.associativity.U
-        roundRobinRegs(setIndex)
+    def getReplIndex(): UInt = {
+        roundRobinRegs(index)
+    }
+
+    // TODO: UInt and Wire(UInt)?
+    def updatePolicyWhenHit(wayIndex: UInt): Unit = {}
+
+    def updatePolicyWhenMissFill(wayIndex: UInt): Unit = {}
+
+    def updatePolicyWhenMissRepl(wayIndex: UInt): Unit = {
+        roundRobinRegs(index) := (roundRobinRegs(index) + 1.U) % p.associativity.U
     }
 
     // TODO: opt way io, like is decouple necessarry?
@@ -246,6 +254,7 @@ class GeCache(p: CacheParams) extends Cache(p) {
             } .otherwise {
                 io.out.bits := hitWayData(offset)
             }
+            updatePolicyWhenHit(hitWayIndex)
             io.out.valid := true.B
             state := 0.U
         } .otherwise {
@@ -261,8 +270,10 @@ class GeCache(p: CacheParams) extends Cache(p) {
                 // - 1.U: seems start from 0
                 // https://www.chisel-lang.org/api/latest/chisel3/util/PriorityEncoder$.html
                 replWayIndexWire := PriorityEncoder(validLineSeq)
+                updatePolicyWhenMissFill(replWayIndexWire)
             } .otherwise {
-                replWayIndexWire := getReplIndex(index)
+                replWayIndexWire := getReplIndex()
+                updatePolicyWhenMissRepl(replWayIndexWire)
                 dataReg := wayIOVec(replWayIndexWire).out.bits.rLine
                 tagReg := wayIOVec(replWayIndexWire).out.bits.rTag
                 wbReg := true.B
