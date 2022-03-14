@@ -144,14 +144,36 @@ class GeneralCacheTester extends AnyFlatSpec with ChiselScalatestTester {
             }
         }
 
-        it should "handle thrashing 0 -> 32 -> 0" in {
+        it should "handle thrashing 0 -> 32 -> 0 (different associativities behave different)" in {
             // val p = CacheParams(32, 4, 1)
             val m = CacheModel(p, replPolicy)()
             test(GeCache(p, replPolicy)).withAnnotations(Seq(WriteVcdAnnotation)) { dut =>
-                performReadTest(dut, m, 0)        // Read miss to addr 0 at block 0
-                performWriteTest(dut, m, 1, 1)    // Write hit to addr 0 at block 0
-                performWriteTest(dut, m, 32, 32)  // Write miss to addr 32 at block 0
-                performWriteTest(dut, m, 1, 1)    // Read miss to addr 0 at block 0
+                // fill up all blocks in a set in order
+                for (w <- 0 until p.associativity) {
+                    val addr = w * p.numSets * p.blockSize
+                    performReadTest(dut, m, addr)
+                }
+
+                // all hit
+                for (w <- 0 until p.associativity) {
+                    val addr = w * p.numSets * p.blockSize
+                    assert(m.isHit(addr) == true)
+                    performWriteTest(dut, m, addr, addr)
+                }
+
+                // find replacement slots
+                for (w <- 0 until p.associativity) {
+                    // add capacity, so tags are different
+                    val addr = w * p.numSets * p.blockSize + p.capacity
+                    performReadTest(dut, m, addr)
+                }
+
+                // all miss
+                for (w <- 0 until p.associativity) {
+                    val addr = w * p.numSets * p.blockSize
+                    assert(m.isHit(addr) == false)
+                    performReadTest(dut, m, addr)
+                }
             }
         }
 

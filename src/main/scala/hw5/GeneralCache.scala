@@ -336,6 +336,7 @@ class GeRBCache(p: CacheParams) extends GeCache(p) {
 }
 
 class GeLRUCache(p: CacheParams) extends GeCache(p) {
+    // ref: https://stackoverflow.com/questions/61052153/how-to-get-the-index-of-max-element-in-uint-vec-chisel
     def getReplIndex(): UInt = {
         LRURelativeOrder(index).indexWhere(age => age === (p.associativity - 1).U)
     }
