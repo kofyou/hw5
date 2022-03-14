@@ -51,6 +51,7 @@ class Cache(val p: CacheParams) extends Module {
 			val wData = UInt(p.bitsPerWord.W)
 		}))
 		val hit = Output(Bool())									// helpful for testing
+		val wayToReplace = Output(UInt(p.associativity.W))
 		val out = Valid(UInt(p.bitsPerWord.W))		// sets valid to true to indicate completion (even for writes)
 	})
 
@@ -95,6 +96,7 @@ class DMCache(p: CacheParams) extends Cache(p) {
 	// just init
 	io.in.ready := true.B
 	io.hit := false.B
+	io.wayToReplace := 0.U
 	io.out.valid := false.B
 	io.out.bits := 0.U
 

@@ -83,6 +83,7 @@ class GeneralCacheTester extends AnyFlatSpec with ChiselScalatestTester {
             dut.io.hit.expect(true.B)
         } else {
             dut.io.hit.expect(false.B)
+            dut.io.wayToReplace.expect(m.wayToReplace(addr).U)
             dut.clock.step()
         }
         m.write(addr, wData)
@@ -174,12 +175,21 @@ class GeneralCacheTester extends AnyFlatSpec with ChiselScalatestTester {
         }
     }
 
-    behavior of "Direct-Mapped GeneralCache"
+    behavior of "roundRobin Direct-Mapped GeCache General Functionality"
     performGeneralTest(p = CacheParams(32, 4, 1), replPolicy = "roundRobin")
 
-    behavior of "Fully-Associative GeneralCache"
+    behavior of "roundRobin Fully-Associative GeCache General Functionality"
     performGeneralTest(p = CacheParams(32, 4, 8), replPolicy = "roundRobin")
 
-    behavior of "Set-Associative GeneralCache"
+    behavior of "roundRobin Set-Associative GeCache General Functionality"
     performGeneralTest(p = CacheParams(32, 4, 2), replPolicy = "roundRobin")
+
+    behavior of "LRU Direct-Mapped GeCache General Functionality"
+    performGeneralTest(p = CacheParams(32, 4, 1), replPolicy = "LRU")
+
+    behavior of "LRU Fully-Associative GeCache General Functionality"
+    performGeneralTest(p = CacheParams(32, 4, 8), replPolicy = "LRU")
+
+    behavior of "LRU Set-Associative GeCache General Functionality"
+    performGeneralTest(p = CacheParams(32, 4, 2), replPolicy = "LRU")
 }

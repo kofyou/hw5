@@ -134,6 +134,7 @@ abstract class GeCache(p: CacheParams) extends Cache(p) {
     // just init
     io.in.ready := true.B
     io.hit := false.B
+    io.wayToReplace := 0.U
     io.out.valid := false.B
     io.out.bits := 0.U
 
@@ -281,6 +282,7 @@ abstract class GeCache(p: CacheParams) extends Cache(p) {
             // for debug
             // printf("replIndex: %d\n\n\n", replWayIndexWire)
             replWayIndexReg := replWayIndexWire
+            io.wayToReplace := replWayIndexWire
             state := 2.U
         }
     } .elsewhen (state === 2.U) {
