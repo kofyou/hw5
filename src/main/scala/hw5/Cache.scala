@@ -3,7 +3,7 @@ package hw5
 import chisel3._
 import chisel3.util._
 
-case class CacheParams(capacity: Int, blockSize: Int, associativity: Int, addrLen: Int = 8, bitsPerWord: Int = 8) {
+case class CacheParams(capacity: Int, blockSize: Int, associativity: Int, replPolicy: String = "RoundRobin", addrLen: Int = 8, bitsPerWord: Int = 8) {
 	require((1 << addrLen) >= capacity)
 	require(capacity >= blockSize)
 	require(isPow2(capacity) && isPow2(blockSize) && isPow2(associativity) && isPow2(bitsPerWord))

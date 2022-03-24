@@ -218,9 +218,9 @@ object CacheModel {
     type CacheBlockModel = ArrayBuffer[Int]
 
     // DMCacheModel is not in use
-    def apply(p: CacheParams, replPolicy: String = "roundRobin")
+    def apply(p: CacheParams)
              (externalMem: ArrayBuffer[CacheBlockModel] = ArrayBuffer.fill(p.numExtMemBlocks)(ArrayBuffer.fill(p.blockSize)(0))): CacheModel = {
-        if (replPolicy == "roundRobin") new SARBCacheModel(p, externalMem)
+        if (p.replPolicy == "roundRobin") new SARBCacheModel(p, externalMem)
         else new SALRUCacheModel(p, externalMem)
     }
 }

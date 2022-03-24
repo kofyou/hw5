@@ -361,8 +361,8 @@ class GeLRUCache(p: CacheParams) extends GeCache(p) {
 }
 
 object GeCache {
-    def apply(p: CacheParams, replPolicy: String = "roundRobin"): GeCache = {
-        if (replPolicy == "roundRobin") new GeRBCache(p)
+    def apply(p: CacheParams): GeCache = {
+        if (p.replPolicy == "roundRobin") new GeRBCache(p)
         else new GeLRUCache(p)
     }
 }
