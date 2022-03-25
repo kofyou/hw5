@@ -163,11 +163,19 @@ abstract class GeCache(p: CacheParams) extends Cache(p) {
     // dataReg := dataReadWire
     // tagReg := tagReadWire
 
-    val roundRobinRegs = RegInit(VecInit(Seq.fill(p.numSets)(0.U(log2Ceil(p.associativity + 1).W))))
+    val roundRobinRegs =
+        if (p.replPolicy == "RoundRobin")
+            Some(RegInit(VecInit(Seq.fill(p.numSets)(0.U(log2Ceil(p.associativity + 1).W)))))
+        else
+            None
 
     // set-way ages
     // ref: https://www.chisel-lang.org/chisel3/docs/cookbooks/cookbook.html#can-i-make-a-2d-or-3d-vector
-    val LRURelativeOrder = RegInit(VecInit.fill(p.numSets, p.associativity)(p.associativity.U(log2Ceil(p.associativity + 1).W)))
+    val LRURelativeOrder =
+        if (p.replPolicy == "LRU")
+            Some(RegInit(VecInit.fill(p.numSets, p.associativity)(p.associativity.U(log2Ceil(p.associativity + 1).W))))
+        else
+            None
 
     def getReplIndex(): UInt
 
@@ -324,7 +332,9 @@ class GeRBCache(p: CacheParams) extends GeCache(p) {
     // TODO: figure out why
     // val roundRobinRegs = RegInit(VecInit(Seq.fill(p.numSets)(0.U(log2Ceil(p.associativity + 1).W))))
     def getReplIndex(): UInt = {
-        roundRobinRegs(index)
+        // roundRobinRegs is optional
+        // more like (roundRobinRegs.get)(index)
+        roundRobinRegs.get(index)
     }
 
     def updatePolicyWhenHit(wayIndex: UInt): Unit = {}
@@ -332,19 +342,22 @@ class GeRBCache(p: CacheParams) extends GeCache(p) {
     def updatePolicyWhenMissFilling(wayIndex: UInt): Unit = {}
 
     def updatePolicyWhenMissFilled(wayIndex: UInt): Unit = {
-        roundRobinRegs(index) := (roundRobinRegs(index) + 1.U) % p.associativity.U
+        // roundRobinRegs is optional
+        roundRobinRegs.get(index) := (roundRobinRegs.get(index) + 1.U) % p.associativity.U
     }
 }
 
 class GeLRUCache(p: CacheParams) extends GeCache(p) {
     // ref: https://stackoverflow.com/questions/61052153/how-to-get-the-index-of-max-element-in-uint-vec-chisel
     def getReplIndex(): UInt = {
-        LRURelativeOrder(index).indexWhere(age => age === (p.associativity - 1).U)
+        // LRURelativeOrder is optional
+        LRURelativeOrder.get(index).indexWhere(age => age === (p.associativity - 1).U)
     }
 
     def updatePolicy(wayIndex: UInt): Unit = {
-        LRURelativeOrder(index).foreach(age => age := Mux(age < LRURelativeOrder(index)(wayIndex), age + 1.U, age))
-        LRURelativeOrder(index)(wayIndex) := 0.U
+        // LRURelativeOrder is optional
+        LRURelativeOrder.get(index).foreach(age => age := Mux(age < LRURelativeOrder.get(index)(wayIndex), age + 1.U, age))
+        LRURelativeOrder.get(index)(wayIndex) := 0.U
     }
 
     def updatePolicyWhenHit(wayIndex: UInt): Unit = {
