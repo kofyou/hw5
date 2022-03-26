@@ -164,7 +164,7 @@ abstract class GeCache(p: CacheParams) extends Cache(p) {
     // tagReg := tagReadWire
 
     val roundRobinRegs =
-        if (p.replPolicy == "RoundRobin")
+        if (p.replPolicy == "roundRobin")
             Some(RegInit(VecInit(Seq.fill(p.numSets)(0.U(log2Ceil(p.associativity + 1).W)))))
         else
             None

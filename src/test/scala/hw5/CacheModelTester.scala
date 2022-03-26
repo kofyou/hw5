@@ -194,7 +194,7 @@ class CacheModelTester extends AnyFlatSpec with ChiselScalatestTester {
         }
     }
 
-    behavior of "RoundRobin SACacheModel General Functionality"
+    behavior of "roundRobin SACacheModel General Functionality"
     testSACacheModel(replPolicy = "roundRobin")
 
     behavior of "LRU SACacheModel General Functionality"
