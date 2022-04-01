@@ -6,6 +6,7 @@ package hw5
 
 import chisel3._
 import chisel3.util._
+import scala.collection.mutable.ArrayBuffer
 
 // for storing data
 class DMCacheWay(p: CacheParams) extends Module {
@@ -103,6 +104,105 @@ class DMCacheWay(p: CacheParams) extends Module {
     }
 }
 
+// for state-machine LRU permutations
+case class Permutations(n: Int) {
+    // the update policy
+    def accessAtInPlace(permutation: ArrayBuffer[Int], accessIndex: Int) = {
+        val theRank = permutation(accessIndex)
+        for (i <- 0 until n) {
+            if (permutation(i) < theRank) {
+                permutation(i) += 1
+            }
+        }
+        permutation(accessIndex) = 0
+    }
+
+    def accessAt(permutation: ArrayBuffer[Int], accessIndex: Int): ArrayBuffer[Int] = {
+        val theRank = permutation(accessIndex)
+        val toPermutation = permutation.clone
+        for (i <- 0 until n) {
+            if (toPermutation(i) < theRank) {
+                toPermutation(i) += 1
+            }
+        }
+        toPermutation(accessIndex) = 0
+        toPermutation
+    }
+    // ==============================================
+    // special cases when the ways are still filling, i.e., the permutation is incomplete
+    def getPermutationsFilling(): ArrayBuffer[ArrayBuffer[Int]] = {
+        // 1 * initial permutation (all n) + (n-1) * filling permutations
+        val permutations = ArrayBuffer[ArrayBuffer[Int]]()
+        // the first initial
+        permutations.append(ArrayBuffer.fill(n)(n))
+        // the others: access at i-1
+        for (i <- 1 until n) {
+            permutations.append(permutations(i-1).clone)
+            accessAtInPlace(permutations(i), i-1)
+        }
+        permutations
+    }
+
+    val permutationsFilling = getPermutationsFilling()
+
+    // normal cases when the ways are already filled
+    // overlapping subproblems though
+    def getPermurtationsFilled(candidates: ArrayBuffer[Int]): ArrayBuffer[ArrayBuffer[Int]] = {
+        val permutations = ArrayBuffer[ArrayBuffer[Int]]()
+        if (candidates.size > 0) {
+            for (i <- 0 until candidates.size) {
+                val shrinked = candidates.clone
+                val theFirst = candidates(i)
+                shrinked.remove(i)
+                val subPermutations = getPermurtationsFilled(shrinked)
+                for (subPermutation <- subPermutations) {
+                    permutations.append(subPermutation.prepend(theFirst))
+                }
+            }
+        }  else {
+            permutations.append(ArrayBuffer[Int]())
+        }
+        permutations
+    }
+
+    val permutationsFilled = getPermurtationsFilled(ArrayBuffer.range(0,n))
+
+    val permutations = permutationsFilling concat permutationsFilled
+    // ==============================================
+    // TODO: is the order of permutations maintained?
+    val eldestTableFilling = permutationsFilling.map(permutation => permutation.indexOf(n))
+
+    val eldestTableFilled = permutationsFilled.map(permutation => permutation.indexOf(permutation.max))
+
+    val eldestTable = eldestTableFilling concat eldestTableFilled
+    // ==============================================
+    def getTransitionFilling(permutation: ArrayBuffer[Int]): ArrayBuffer[Int] = {
+        // 0 is invalid transition
+        val transitions = ArrayBuffer.fill(n)(0)
+        val toPermutation = accessAt(permutation, permutation.indexOf(n))
+        // get the id from the whole sets of permutations
+        // normally id + 1. but the special case transits to the last one
+        transitions(permutation.indexOf(n)) = permutations.indexOf(toPermutation)
+        transitions
+    }
+
+    val transitionTableFilling = permutationsFilling.map((permutation) => getTransitionFilling(permutation))
+
+    def getTransitionFilled(permutation: ArrayBuffer[Int]): ArrayBuffer[Int] = {
+        val transitions = ArrayBuffer[Int]()
+        for (i <- 0 until n) {
+            val toPermutation = accessAt(permutation, i)
+            // get the id from the whole sets of permutations
+            transitions.append(permutations.indexOf(toPermutation))
+        }
+        transitions
+    }
+
+    val transitionTableFilled = permutationsFilled.map(permutation => getTransitionFilled(permutation))
+
+    val transitionTable = transitionTableFilling concat transitionTableFilled
+}
+
 // for control
 abstract class GeCache(p: CacheParams) extends Cache(p) {
     // seq only takes scala index. if indexing by chisel should use vec
@@ -176,6 +276,37 @@ abstract class GeCache(p: CacheParams) extends Cache(p) {
             Some(RegInit(VecInit.fill(p.numSets, p.associativity)(p.associativity.U(log2Ceil(p.associativity + 1).W))))
         else
             None
+
+    // state machine LRU
+    val permutations =
+        if (p.replPolicy == "LRU2")
+            Some(new Permutations(p.associativity))
+        else
+            None
+
+    // 1-d
+    val eldestTable =
+        if (p.replPolicy == "LRU2")
+            Some(RegInit(VecInit(permutations.get.eldestTable.toSeq.map(_.U))))
+        else
+            None
+
+    // 2-d
+    val transitionTable =
+        if (p.replPolicy == "LRU2")
+            // Some(RegInit(VecInit(permutations.get.transitionTable.map(_.toSeq.map(_.U)).toSeq)))
+            // https://www.chisel-lang.org/chisel3/docs/cookbooks/cookbook.html#can-i-make-a-2D-or-3D-Vector
+            Some(RegInit(VecInit.tabulate(permutations.get.transitionTable.size, p.associativity){(x,y) => permutations.get.transitionTable(x)(y).U}))
+        else
+            None
+
+    // 1-d
+    val indexStateTable =
+        if (p.replPolicy == "LRU2")
+            Some(RegInit(VecInit.fill(p.numSets)(0.U(log2Ceil(p.associativity + 1).W))))
+        else
+            None
+
 
     def getReplIndex(): UInt
 
@@ -373,9 +504,33 @@ class GeLRUCache(p: CacheParams) extends GeCache(p) {
     }
 }
 
+// LRU by state machine
+class GeLRUCache2(p: CacheParams) extends GeCache(p) {
+    def getReplIndex(): UInt = {
+        eldestTable.get(indexStateTable.get(index))
+    }
+
+    def updatePolicy(wayIndex: UInt): Unit = {
+        indexStateTable.get(index) := transitionTable.get(indexStateTable.get(index))(wayIndex)
+    }
+
+    def updatePolicyWhenHit(wayIndex: UInt): Unit = {
+        updatePolicy(wayIndex)
+    }
+
+    def updatePolicyWhenMissFilling(wayIndex: UInt): Unit = {
+        updatePolicy(wayIndex)
+    }
+
+    def updatePolicyWhenMissFilled(wayIndex: UInt): Unit = {
+        updatePolicy(wayIndex)
+    }
+}
+
 object GeCache {
     def apply(p: CacheParams): GeCache = {
         if (p.replPolicy == "roundRobin") new GeRBCache(p)
-        else new GeLRUCache(p)
+        else if (p.replPolicy == "LRU") new GeLRUCache(p)
+        else new GeLRUCache2(p)
     }
 }
