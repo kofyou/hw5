@@ -129,22 +129,6 @@ case class Permutations(n: Int) {
         toPermutation
     }
     // ==============================================
-    // special cases when the ways are still filling, i.e., the permutation is incomplete
-    def getPermutationsFilling(): ArrayBuffer[ArrayBuffer[Int]] = {
-        // 1 * initial permutation (all n) + (n-1) * filling permutations
-        val permutations = ArrayBuffer[ArrayBuffer[Int]]()
-        // the first initial
-        permutations.append(ArrayBuffer.fill(n)(n))
-        // the others: access at i-1
-        for (i <- 1 until n) {
-            permutations.append(permutations(i-1).clone)
-            accessAtInPlace(permutations(i), i-1)
-        }
-        permutations
-    }
-
-    val permutationsFilling = getPermutationsFilling()
-
     // normal cases when the ways are already filled
     // overlapping subproblems though
     def getPermurtationsFilled(candidates: ArrayBuffer[Int]): ArrayBuffer[ArrayBuffer[Int]] = {
@@ -167,9 +151,27 @@ case class Permutations(n: Int) {
 
     val permutationsFilled = getPermurtationsFilled(ArrayBuffer.range(0,n))
 
+    // special cases when the ways are still filling, i.e., the permutation is incomplete
+    def getPermutationsFilling(): ArrayBuffer[ArrayBuffer[Int]] = {
+        val permutations = ArrayBuffer[ArrayBuffer[Int]]()
+        for (i <- 0 until n) {
+            val shorterPermutations = getPermurtationsFilled(ArrayBuffer.range(0,i))
+            for (shorterPermutation <- shorterPermutations) {
+                for (j <- 0 until n-i) {
+                    shorterPermutation.append(n)
+                }
+            }
+            permutations.appendAll(shorterPermutations)
+        }
+        permutations
+    }
+
+    val permutationsFilling = getPermutationsFilling()
+
     val permutations = permutationsFilling concat permutationsFilled
     // ==============================================
     // TODO: is the order of permutations maintained?
+    // this filling map will not be used. beacus the implementation utilizes the valid bit
     val eldestTableFilling = permutationsFilling.map(permutation => permutation.indexOf(n))
 
     val eldestTableFilled = permutationsFilled.map(permutation => permutation.indexOf(permutation.max))
@@ -177,12 +179,18 @@ case class Permutations(n: Int) {
     val eldestTable = eldestTableFilling concat eldestTableFilled
     // ==============================================
     def getTransitionFilling(permutation: ArrayBuffer[Int]): ArrayBuffer[Int] = {
-        // 0 is invalid transition
-        val transitions = ArrayBuffer.fill(n)(0)
-        val toPermutation = accessAt(permutation, permutation.indexOf(n))
-        // get the id from the whole sets of permutations
-        // normally id + 1. but the special case transits to the last one
-        transitions(permutation.indexOf(n)) = permutations.indexOf(toPermutation)
+        val transitions = ArrayBuffer[Int]()
+        val validUntil = permutation.indexOf(n)
+        for (i <- 0 until n) {
+            // when equals, fill the next way
+            if (i <= validUntil) {
+                val toPermutation = accessAt(permutation, i)
+                // get the id from the whole sets of permutations
+                transitions.append(permutations.indexOf(toPermutation))
+            } else {
+                transitions.append(0)
+            }
+        }
         transitions
     }
 
@@ -303,7 +311,7 @@ abstract class GeCache(p: CacheParams) extends Cache(p) {
     // 1-d
     val indexStateTable =
         if (p.replPolicy == "LRU2")
-            Some(RegInit(VecInit.fill(p.numSets)(0.U(log2Ceil(p.associativity + 1).W))))
+            Some(RegInit(VecInit.fill(p.numSets)(0.U(log2Ceil(permutations.get.transitionTable.size).W))))
         else
             None
 
